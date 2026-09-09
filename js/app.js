@@ -476,6 +476,20 @@ function escapeHtml(str){
 /* ============ INIT ============ */
 loadData();
 
+/* ============ DASHBOARD VIDEO ============ */
+(function initDashboardVideo(){
+  const videos = document.querySelectorAll('.dashboard-video-item');
+  if(!videos.length) return;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  videos.forEach(video => {
+    video.playbackRate = reduced ? 0.65 : 0.82;
+    video.addEventListener('loadedmetadata', () => video.play().catch(() => {}), {once:true});
+  });
+  document.addEventListener('visibilitychange', () => {
+    videos.forEach(video => document.hidden ? video.pause() : video.play().catch(() => {}));
+  });
+})();
+
 /* ============ INTRO SPLASH CONTROL ============ */
 const SETTINGS_KEY = 'organizer-settings';
 let SCENE_SETTINGS = Object.assign({enabled:true, loop:true, duration:16}, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'));
