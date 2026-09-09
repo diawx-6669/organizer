@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Мой органайзер</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="intro-splash" id="intro-splash">
+  <div class="intro-stage">
+    <div class="intro-book">
+      <div class="book-page page-back"></div>
+      <div class="book-page page-mid"></div>
+      <div class="book-spread">
+        <div class="book-leaf leaf-left">
+          <div class="leaf-lines"></div>
+        </div>
+        <div class="book-leaf leaf-right">
+          <div class="leaf-lines"></div>
+        </div>
+      </div>
+      <div class="book-cover">
+        <div class="cover-mark">Я</div>
+        <div class="cover-title">Мой<br>органайзер</div>
+      </div>
+    </div>
+    <div class="intro-chips">
+      <span class="intro-chip" style="--c:var(--tab3)">уроки</span>
+      <span class="intro-chip" style="--c:var(--tab1)">домашка</span>
+      <span class="intro-chip" style="--c:var(--tab4)">события</span>
+      <span class="intro-chip" style="--c:var(--tab2)">цели</span>
+      <span class="intro-chip" style="--c:var(--tab6)">календарь</span>
+    </div>
+    <div class="intro-caption">открываю твой органайзер…</div>
+  </div>
+  <button class="intro-skip" id="intro-skip">пропустить ›</button>
+</div>
+
+<div class="app">
+  <nav class="tabs" id="tabs">
+    <div class="brand">
+      <div class="mark">Я</div>
+      <div class="name">Мой органайзер</div>
+      <div class="sub">учёба · дела · цели</div>
+    </div>
+    <button class="tab-btn active" data-view="dashboard" style="--dotc:var(--tab5)"><i class="dot"></i><span class="label">Обзор</span></button>
+    <button class="tab-btn" data-view="lessons" style="--dotc:var(--tab3)"><i class="dot"></i><span class="label">Уроки</span><span class="count" id="cnt-lessons">0</span></button>
+    <button class="tab-btn" data-view="homework" style="--dotc:var(--tab1)"><i class="dot"></i><span class="label">Домашка</span><span class="count" id="cnt-homework">0</span></button>
+    <button class="tab-btn" data-view="events" style="--dotc:var(--tab4)"><i class="dot"></i><span class="label">Мероприятия</span><span class="count" id="cnt-events">0</span></button>
+    <button class="tab-btn" data-view="goals" style="--dotc:var(--tab2)"><i class="dot"></i><span class="label">Цели</span><span class="count" id="cnt-goals">0</span></button>
+    <button class="tab-btn" data-view="calendar" style="--dotc:var(--tab6)"><i class="dot"></i><span class="label">Календарь</span></button>
+    <div class="sync-note"><span class="sync-dotpulse" id="save-indicator"></span><b>Хранится локально.</b> Все данные лежат прямо в этом браузере на этом Mac — никуда не отправляются.</div>
+    <div class="backup-row">
+      <button class="backup-btn" onclick="exportBackup()" title="Скачать резервную копию данных">⭳ бэкап</button>
+      <label class="backup-btn" title="Загрузить данные из файла бэкапа">
+        ⭱ восстановить
+        <input type="file" accept="application/json" style="display:none" onchange="if(this.files[0]) importBackup(this.files[0]); this.value='';">
+      </label>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="topline">
+        <div>
+          <div class="greeting" id="greeting">Привет 👋</div>
+          <div class="date" id="today-str"></div>
+        </div>
+        <div class="today-badge" id="today-badge">сегодня</div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="orbit-wrap">
+          <div class="orbit-title">твоя неделя</div>
+          <svg class="orbit-svg" id="orbit-svg" viewBox="0 0 300 300"></svg>
+          <div class="orbit-legend">
+            <span><i style="background:var(--tab1)"></i>домашка</span>
+            <span><i style="background:var(--tab4)"></i>мероприятия</span>
+            <span><i style="background:var(--tab2)"></i>цели</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="stat-list">
+            <div class="stat-row"><span class="label">Уроков в списке</span><span class="value" id="s-lessons">0</span></div>
+            <div class="stat-row"><span class="label">Домашки не сделано</span><span class="value" id="s-homework">0</span></div>
+            <div class="stat-row"><span class="label">Мероприятий впереди</span><span class="value" id="s-events">0</span></div>
+            <div class="stat-row"><span class="label">Целей в работе</span><span class="value" id="s-goals">0</span></div>
+          </div>
+
+          <div class="upcoming-title">ближайшие дедлайны</div>
+          <div id="upcoming-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LESSONS -->
+    <section class="view" id="view-lessons">
+      <div class="section-head">
+        <h2>Уроки</h2>
+        <button class="add-btn" onclick="openModal('lessons')">+ добавить урок</button>
+      </div>
+      <div class="ledger" id="list-lessons"></div>
+    </section>
+
+    <!-- HOMEWORK -->
+    <section class="view" id="view-homework">
+      <div class="section-head">
+        <h2>Домашка</h2>
+        <button class="add-btn" onclick="openModal('homework')">+ добавить задание</button>
+      </div>
+      <div class="ledger" id="list-homework"></div>
+    </section>
+
+    <!-- EVENTS -->
+    <section class="view" id="view-events">
+      <div class="section-head">
+        <h2>Мероприятия и хакатоны</h2>
+        <button class="add-btn" onclick="openModal('events')">+ добавить событие</button>
+      </div>
+      <div class="ledger" id="list-events"></div>
+    </section>
+
+    <!-- GOALS -->
+    <section class="view" id="view-goals">
+      <div class="section-head">
+        <h2>Цели на будущее</h2>
+        <button class="add-btn" onclick="openModal('goals')">+ добавить цель</button>
+      </div>
+      <div id="list-goals"></div>
+    </section>
+
+    <!-- CALENDAR -->
+    <section class="view" id="view-calendar">
+      <div class="section-head">
+        <h2>Календарь</h2>
+      </div>
+      <div class="cal-head">
+        <div class="cal-month-label" id="cal-month-label"></div>
+        <div class="cal-nav">
+          <button onclick="calShift(-1)">‹</button>
+          <button onclick="calGoToday()" style="width:auto;border-radius:14px;padding:0 12px;font-size:11px;">сегодня</button>
+          <button onclick="calShift(1)">›</button>
+        </div>
+      </div>
+      <div class="cal-grid-wrap">
+        <div class="cal-grid cal-fade" id="cal-grid"></div>
+      </div>
+      <div class="day-panel" id="day-panel" style="display:none;">
+        <div class="day-panel-title" id="day-panel-title"></div>
+        <div id="day-panel-list"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal-box"></div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
