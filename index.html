@@ -76,6 +76,14 @@
         <div class="hero-note"><span>01</span><span>в фокусе</span></div>
       </div>
 
+      <div class="quick-actions" aria-label="Быстрые действия">
+        <div class="quick-heading"><span>быстрый старт</span><strong>Что добавим в день?</strong></div>
+        <button class="quick-action" onclick="openModal('lessons')"><span class="quick-icon">↗</span><span><b>Урок</b><small>новое занятие</small></span></button>
+        <button class="quick-action" onclick="openModal('homework')"><span class="quick-icon">✦</span><span><b>Домашка</b><small>задача с дедлайном</small></span></button>
+        <button class="quick-action" onclick="openModal('events')"><span class="quick-icon">◷</span><span><b>Событие</b><small>важная дата</small></span></button>
+        <button class="quick-action" onclick="openModal('goals')"><span class="quick-icon">◎</span><span><b>Цель</b><small>движение вперёд</small></span></button>
+      </div>
+
       <div class="dash-grid">
         <div class="orbit-wrap">
           <div class="orbit-title">твоя неделя</div>
@@ -104,7 +112,7 @@
     <!-- LESSONS -->
     <section class="view" id="view-lessons">
       <div class="section-head">
-        <h2>Уроки</h2>
+        <div><h2>Уроки</h2><p class="section-hint">Расписание занятий и важные темы на неделю.</p></div>
         <button class="add-btn" onclick="openModal('lessons')">+ добавить урок</button>
       </div>
       <div class="ledger" id="list-lessons"></div>
@@ -113,7 +121,7 @@
     <!-- HOMEWORK -->
     <section class="view" id="view-homework">
       <div class="section-head">
-        <h2>Домашка</h2>
+        <div><h2>Домашка</h2><p class="section-hint">Держи дедлайны под контролем и закрывай задачи по одной.</p></div>
         <button class="add-btn" onclick="openModal('homework')">+ добавить задание</button>
       </div>
       <div class="ledger" id="list-homework"></div>
@@ -122,7 +130,7 @@
     <!-- EVENTS -->
     <section class="view" id="view-events">
       <div class="section-head">
-        <h2>Мероприятия и хакатоны</h2>
+        <div><h2>Мероприятия и хакатоны</h2><p class="section-hint">Возможности, встречи и даты, которые нельзя пропустить.</p></div>
         <button class="add-btn" onclick="openModal('events')">+ добавить событие</button>
       </div>
       <div class="ledger" id="list-events"></div>
@@ -131,7 +139,7 @@
     <!-- GOALS -->
     <section class="view" id="view-goals">
       <div class="section-head">
-        <h2>Цели на будущее</h2>
+        <div><h2>Цели на будущее</h2><p class="section-hint">Большие намерения превращаются в маленькие шаги.</p></div>
         <button class="add-btn" onclick="openModal('goals')">+ добавить цель</button>
       </div>
       <div id="list-goals"></div>
@@ -140,7 +148,7 @@
     <!-- CALENDAR -->
     <section class="view" id="view-calendar">
       <div class="section-head">
-        <h2>Календарь</h2>
+        <div><h2>Календарь</h2><p class="section-hint">Выбери день, чтобы увидеть всё запланированное.</p></div>
       </div>
       <div class="cal-head">
         <div class="cal-month-label" id="cal-month-label"></div>
