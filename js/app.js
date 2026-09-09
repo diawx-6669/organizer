@@ -477,33 +477,30 @@ function escapeHtml(str){
 loadData();
 
 /* ============ INTRO SPLASH CONTROL ============ */
-(function(){
-  const splash = document.getElementById('intro-splash');
-  const skipBtn = document.getElementById('intro-skip');
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const alreadyShown = sessionStorage.getItem('intro-shown');
-
-  if(!splash) return;
-
-  if(alreadyShown || reduceMotion){
-    splash.classList.add('done');
-    return;
-  }
-  sessionStorage.setItem('intro-shown', '1');
-
-  let closed = false;
-  function closeIntro(){
-    if(closed) return;
-    closed = true;
-    splash.classList.add('closing');
-    setTimeout(()=> splash.classList.add('done'), 560);
-  }
-
-  const autoTimer = setTimeout(closeIntro, 3400);
-  skipBtn.addEventListener('click', ()=>{ clearTimeout(autoTimer); closeIntro(); });
-  splash.addEventListener('click', (e)=>{ if(e.target===splash){ clearTimeout(autoTimer); closeIntro(); } });
-  document.addEventListener('keydown', function onKey(e){
-    clearTimeout(autoTimer); closeIntro();
-    document.removeEventListener('keydown', onKey);
-  }, {once:true});
-})();
+const SETTINGS_KEY = 'organizer-settings';
+let SCENE_SETTINGS = Object.assign({enabled:true, loop:true, duration:16}, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'));
+function saveSceneSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(SCENE_SETTINGS)); }
+function openSettings(){
+  const box = document.getElementById('modal-box');
+  box.innerHTML = `<h3>Настройки сцены</h3>
+    <div class="settings-card"><label><input id="scene-enabled" type="checkbox" ${SCENE_SETTINGS.enabled?'checked':''}> Показывать сцену при входе</label></div>
+    <div class="settings-card"><label><input id="scene-loop" type="checkbox" ${SCENE_SETTINGS.loop?'checked':''}> Повторять анимацию бесконечно</label><small>При выключении сцена проигрывается один раз за вход.</small></div>
+    <div class="field"><label>Длительность сцены: <b id="duration-value">${SCENE_SETTINGS.duration} сек.</b></label><input id="scene-duration" type="range" min="8" max="40" step="4" value="${SCENE_SETTINGS.duration}"></div>
+    <div class="modal-actions"><button class="btn-secondary" onclick="closeModal()">Отмена</button><button class="btn-primary" onclick="saveSettings()">Сохранить</button></div>`;
+  document.getElementById('scene-duration').addEventListener('input', e=>document.getElementById('duration-value').textContent=e.target.value+' сек.');
+  document.getElementById('overlay').classList.add('open');
+}
+function saveSettings(){
+  SCENE_SETTINGS={enabled:document.getElementById('scene-enabled').checked,loop:document.getElementById('scene-loop').checked,duration:Number(document.getElementById('scene-duration').value)};
+  saveSceneSettings(); closeModal(); launchIntro(true);
+}
+function launchIntro(force=false){
+  const splash=document.getElementById('intro-splash'); if(!splash) return;
+  if(!force && (!SCENE_SETTINGS.enabled || sessionStorage.getItem('intro-shown'))) { splash.classList.add('done'); return; }
+  splash.classList.remove('done','closing'); document.documentElement.style.setProperty('--scene-duration',SCENE_SETTINGS.duration+'s');
+  splash.classList.toggle('intro-loop',SCENE_SETTINGS.loop); sessionStorage.setItem('intro-shown','1');
+  let closed=false; const closeIntro=()=>{if(closed)return;closed=true;splash.classList.add('closing');setTimeout(()=>splash.classList.add('done'),1400)};
+  const timer=setTimeout(closeIntro,SCENE_SETTINGS.duration*1000); document.getElementById('intro-skip').onclick=()=>{clearTimeout(timer);closeIntro()};
+  if(SCENE_SETTINGS.loop){splash.querySelectorAll('.intro-art').forEach(el=>el.style.animationIterationCount='infinite')}
+}
+launchIntro();
