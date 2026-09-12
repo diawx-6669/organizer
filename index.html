@@ -150,6 +150,10 @@
         <div><h2>Домашка</h2><p class="section-hint">Держи дедлайны под контролем и закрывай задачи по одной.</p></div>
         <button class="add-btn" onclick="openModal('homework')">+ добавить задание</button>
       </div>
+      <div class="hw-filter-row">
+        <label for="hw-subject-filter">Предмет:</label>
+        <select id="hw-subject-filter" onchange="setHwFilter(this.value)"></select>
+      </div>
       <div class="ledger" id="list-homework"></div>
     </section>
 
