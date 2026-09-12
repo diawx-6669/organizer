@@ -401,10 +401,17 @@ function renderLessons(){
 }
 
 function renderHomework(){
+  renderHwFilterOptions();
   const wrap = document.getElementById('list-homework');
   wrap.innerHTML = '';
-  if(DATA.homework.length===0){ wrap.innerHTML = '<div class="empty-note">Домашки нет. Хорошее начало дня.</div>'; return; }
-  const sorted = [...DATA.homework].sort((a,b)=>{
+  const filtered = hwFilterSubject === 'all' ? DATA.homework : DATA.homework.filter(h => (h.subject||'') === hwFilterSubject);
+  if(filtered.length===0){
+    wrap.innerHTML = hwFilterSubject === 'all'
+      ? '<div class="empty-note">Домашки нет. Хорошее начало дня.</div>'
+      : '<div class="empty-note">По этому предмету пока ничего не записано.</div>';
+    return;
+  }
+  const sorted = [...filtered].sort((a,b)=>{
     if(a.done !== b.done) return a.done ? 1 : -1;
     return new Date(a.due||0) - new Date(b.due||0);
   });
@@ -433,6 +440,21 @@ function subjectGroups(){
   const list = [...SUBJECTS];
   used.forEach(s=>{ if(!list.includes(s)) list.push(s); });
   return list;
+}
+
+let hwFilterSubject = 'all';
+function setHwFilter(val){
+  hwFilterSubject = val;
+  renderHomework();
+}
+function renderHwFilterOptions(){
+  const sel = document.getElementById('hw-subject-filter');
+  if(!sel) return;
+  const prev = hwFilterSubject;
+  sel.innerHTML = '<option value="all">Все предметы</option>' +
+    subjectGroups().map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+  sel.value = prev;
+  if(sel.value !== prev){ sel.value = 'all'; hwFilterSubject = 'all'; }
 }
 
 function renderSubjects(){
