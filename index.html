@@ -30,6 +30,7 @@
       <div class="sub">учёба · дела · цели</div>
     </div>
     <button class="tab-btn active" data-view="dashboard" style="--dotc:var(--tab5)"><i class="dot"></i><span class="label">Обзор</span></button>
+    <button class="tab-btn" data-view="schedule" style="--dotc:var(--tab3)"><i class="dot"></i><span class="label">Расписание</span></button>
     <button class="tab-btn" data-view="lessons" style="--dotc:var(--tab3)"><i class="dot"></i><span class="label">Уроки</span><span class="count" id="cnt-lessons">0</span></button>
     <button class="tab-btn" data-view="subjects" style="--dotc:var(--tab6)"><i class="dot"></i><span class="label">Предметы</span><span class="count" id="cnt-subjects">0</span></button>
     <button class="tab-btn" data-view="homework" style="--dotc:var(--tab1)"><i class="dot"></i><span class="label">Домашка</span><span class="count" id="cnt-homework">0</span></button>
@@ -107,6 +108,22 @@
           <div class="upcoming-title">ближайшие дедлайны</div>
           <div id="upcoming-list"></div>
         </div>
+      </div>
+    </section>
+
+    <!-- SCHEDULE -->
+    <section class="view" id="view-schedule">
+      <div class="section-head">
+        <div><h2>Расписание</h2><p class="section-hint">Твоя учебная неделя — программа сама чередуется по датам. Нажми на урок, чтобы добавить домашку или суммативку.</p></div>
+      </div>
+      <div class="sched-nav">
+        <button class="sched-arrow" onclick="schedShift(-1)">‹</button>
+        <div class="sched-range" id="sched-range"></div>
+        <button class="sched-today" onclick="schedToday()">сегодня</button>
+        <button class="sched-arrow" onclick="schedShift(1)">›</button>
+      </div>
+      <div class="sched-grid-wrap">
+        <div class="sched-grid" id="sched-grid"></div>
       </div>
     </section>
 

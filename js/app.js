@@ -18,6 +18,200 @@ const SUBJECTS = [
 ];
 let openSubjects = new Set();
 
+/* ============ SCHEDULE (расписание) ============ */
+const SCHED_TIMES = ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00"];
+const SCHED_DAY_KEYS = ["Пн","Вт","Ср","Чт","Пт"];
+
+const SCHED_RUS = {
+  "Mathematics":"Математика",
+  "Physical and Health Education":"Физкультура",
+  "Arts":"ИЗО",
+  "Homeroom":"Хоумрум",
+  "English Language Acquisition":"Английский язык",
+  "Kazakh Language and Literature":"Казахский язык и литература",
+  "Information and communication technology":"ИКТ",
+  "Chemistry":"Химия",
+  "Physics":"Физика",
+  "World History":"Всемирная история",
+  "Economics":"Экономика",
+  "Kazakh History":"История Казахстана",
+  "Russian Language Acquisition":"Русский язык",
+  "Biology":"Биология",
+  "Geography":"География"
+};
+
+const SCHED_COLORS = {
+  "Mathematics":"#e88fc7",
+  "Physical and Health Education":"#e0a25e",
+  "Arts":"#e0776e",
+  "Homeroom":"#c9c46a",
+  "English Language Acquisition":"#c9c46a",
+  "Kazakh Language and Literature":"#e88fc7",
+  "Information and communication technology":"#c9c46a",
+  "Chemistry":"#e0a25e",
+  "Physics":"#e0a25e",
+  "World History":"#b7c96a",
+  "Economics":"#d97a72",
+  "Kazakh History":"#e88fc7",
+  "Russian Language Acquisition":"#e0a25e",
+  "Biology":"#e0a25e",
+  "Geography":"#d97a72"
+};
+
+// SCHED_DATA[pattern][dayKey] = subject per SCHED_TIMES slot, in order
+const SCHED_DATA = {
+  A: {
+    "Пн": ["Mathematics","Physical and Health Education","Arts","Homeroom","English Language Acquisition","Kazakh Language and Literature","Information and communication technology","Homeroom"],
+    "Вт": ["Chemistry","Physics","Mathematics","Homeroom","Kazakh Language and Literature","English Language Acquisition","World History","Homeroom"],
+    "Ср": ["Arts","Mathematics","Economics","Homeroom","Kazakh History","Russian Language Acquisition","Biology","Homeroom"],
+    "Чт": ["Geography","Information and communication technology","Chemistry","Homeroom","Physical and Health Education","Mathematics","Physics","Homeroom"],
+    "Пт": ["Russian Language Acquisition","Kazakh Language and Literature","English Language Acquisition","Homeroom","Kazakh History","Biology","Economics","Homeroom"]
+  },
+  B: {
+    "Пн": ["Mathematics","Physical and Health Education","Arts","Homeroom","English Language Acquisition","Kazakh Language and Literature","Information and communication technology","Homeroom"],
+    "Вт": ["Chemistry","Physics","Mathematics","Homeroom","Kazakh Language and Literature","English Language Acquisition","World History","Homeroom"],
+    "Ср": ["Arts","Mathematics","Geography","Homeroom","Kazakh History","Russian Language Acquisition","Biology","Homeroom"],
+    "Чт": ["Geography","Information and communication technology","Chemistry","Homeroom","Physical and Health Education","Mathematics","Physics","Homeroom"],
+    "Пт": ["Russian Language Acquisition","Kazakh Language and Literature","English Language Acquisition","Homeroom","Kazakh History","Biology","Economics","Homeroom"]
+  }
+};
+
+// a Monday known to be a pattern-"A" week — everything alternates from here automatically
+const SCHED_ANCHOR_MONDAY = new Date(2026,8,14);
+
+function schedGetMonday(d){
+  const day = (d.getDay()+6)%7; // Monday=0
+  const m = new Date(d);
+  m.setHours(0,0,0,0);
+  m.setDate(d.getDate()-day);
+  return m;
+}
+function schedDateKey(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function schedPatternFor(monday){
+  const diffDays = Math.round((monday - SCHED_ANCHOR_MONDAY)/(1000*60*60*24));
+  const diffWeeks = Math.round(diffDays/7);
+  return (((diffWeeks%2)+2)%2===0) ? 'A' : 'B';
+}
+
+let scheduleWeekMonday = schedGetMonday(new Date());
+
+function schedShift(deltaWeeks){
+  scheduleWeekMonday = new Date(scheduleWeekMonday);
+  scheduleWeekMonday.setDate(scheduleWeekMonday.getDate()+7*deltaWeeks);
+  renderSchedule();
+}
+function schedToday(){
+  scheduleWeekMonday = schedGetMonday(new Date());
+  renderSchedule();
+}
+
+function renderSchedule(){
+  const grid = document.getElementById('sched-grid');
+  const rangeEl = document.getElementById('sched-range');
+  if(!grid || !rangeEl) return;
+
+  const monday = scheduleWeekMonday;
+  const pattern = schedPatternFor(monday);
+  const days = SCHED_DAY_KEYS.map((key,i)=>{
+    const d = new Date(monday);
+    d.setDate(monday.getDate()+i);
+    return {key, date:d};
+  });
+
+  const first = days[0].date, last = days[4].date;
+  const fmt = d => d.getDate()+' '+MONTHS[d.getMonth()].slice(0,3);
+  rangeEl.textContent = fmt(first)+' — '+fmt(last);
+
+  const today = schedDateKey(new Date());
+
+  grid.innerHTML = '';
+  grid.appendChild(document.createElement('div')).className='sched-corner';
+  days.forEach(({key,date})=>{
+    const h = document.createElement('div');
+    h.className = 'sched-head' + (schedDateKey(date)===today ? ' is-today':'');
+    h.innerHTML = `<div class="sched-head-day">${DOWS_FULL[key]}</div><div class="sched-head-date">${date.getDate()} ${MONTHS[date.getMonth()].slice(0,3)}</div>`;
+    grid.appendChild(h);
+  });
+
+  SCHED_TIMES.forEach((time, slotIdx)=>{
+    const tcell = document.createElement('div');
+    tcell.className = 'sched-time';
+    tcell.textContent = time;
+    grid.appendChild(tcell);
+
+    days.forEach(({key,date})=>{
+      const subj = SCHED_DATA[pattern][key][slotIdx];
+      const rus = SCHED_RUS[subj] || subj;
+      const isHomeroom = subj === 'Homeroom';
+      const dateStr = schedDateKey(date);
+      const cell = document.createElement('div');
+      cell.className = 'sched-cell' + (isHomeroom ? ' homeroom':'');
+      if(!isHomeroom) cell.style.background = hexToRgba(SCHED_COLORS[subj]||'#888', 0.16);
+      if(!isHomeroom) cell.style.borderLeft = '3px solid ' + (SCHED_COLORS[subj]||'#888');
+
+      const items = DATA.homework.filter(h => h.subject===rus && h.due===dateStr);
+      const sor = items.filter(i=>i.kind==='sor');
+      const hw = items.filter(i=>i.kind!=='sor');
+
+      const subjEl = document.createElement('div');
+      subjEl.className = 'sched-subj';
+      subjEl.textContent = rus;
+      cell.appendChild(subjEl);
+
+      [...sor, ...hw].forEach(item=>{
+        const tag = document.createElement('div');
+        const isSor = item.kind==='sor';
+        tag.className = 'sched-tag' + (isSor?' sor':'') + (item.done?' done':'');
+        tag.textContent = (isSor ? '◆ ' : (item.done ? '✓ ' : '• ')) + item.title;
+        tag.title = isSor ? 'Нажми, чтобы изменить' : 'Нажми, чтобы отметить сделанным';
+        tag.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          if(isSor){ openModal('homework', item.id); }
+          else { toggleDone('homework', item.id); }
+        });
+        cell.appendChild(tag);
+      });
+
+      if(!isHomeroom){
+        cell.addEventListener('click', (e)=>{
+          if(e.target.closest('.sched-tag')) return;
+          openModal('homework', null, {subject:rus, due:dateStr});
+        });
+      }
+      grid.appendChild(cell);
+    });
+  });
+}
+
+function hexToRgba(hex, alpha){
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+const DOWS_FULL = {"Пн":"Понедельник","Вт":"Вторник","Ср":"Среда","Чт":"Четверг","Пт":"Пятница"};
+
+/* seed the summative assessments we already know about, once */
+function seedKnownSummatives(){
+  if(localStorage.getItem('seeded-sor-v1')) return;
+  const seeds = [
+    {subject:'Математика', due:'2026-09-15', title:'Суммативная работа'},
+    {subject:'ИЗО', due:'2026-09-16', title:'Суммативная работа'},
+    {subject:'ИКТ', due:'2026-09-17', title:'Суммативная работа'},
+    {subject:'Физкультура', due:'2026-09-24', title:'Суммативная работа'},
+    {subject:'География', due:'2026-09-24', title:'Суммативная работа'},
+    {subject:'Казахский язык и литература', due:'2026-09-25', title:'Суммативная работа'},
+    {subject:'История Казахстана', due:'2026-09-25', title:'Суммативная работа'}
+  ];
+  seeds.forEach(s=>{
+    DATA.homework.push({id:uid(), done:false, createdAt:Date.now(), kind:'sor', notes:'', ...s});
+  });
+  localStorage.setItem('seeded-sor-v1','1');
+  saveData();
+}
+
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
 async function loadData(){
@@ -30,6 +224,7 @@ async function loadData(){
   }catch(e){
     console.log('Нет сохранённых данных ещё, начинаем с чистого листа', e);
   }
+  seedKnownSummatives();
   renderAll();
   updateSubjectsDatalist();
 }
@@ -89,6 +284,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
     if(btn.dataset.view === 'calendar') renderCalendar();
+    if(btn.dataset.view === 'schedule') renderSchedule();
   });
 });
 
@@ -361,6 +557,7 @@ function renderCounts(){
 
 function renderAll(){
   renderDashboard();
+  renderSchedule();
   renderLessons();
   renderSubjects();
   renderHomework();
