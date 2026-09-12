@@ -195,21 +195,49 @@ const DOWS_FULL = {"Пн":"Понедельник","Вт":"Вторник","Ср
 
 /* seed the summative assessments we already know about, once */
 function seedKnownSummatives(){
-  if(localStorage.getItem('seeded-sor-v1')) return;
-  const seeds = [
-    {subject:'Математика', due:'2026-09-15', title:'Суммативная работа'},
-    {subject:'ИЗО', due:'2026-09-16', title:'Суммативная работа'},
-    {subject:'ИКТ', due:'2026-09-17', title:'Суммативная работа'},
-    {subject:'Физкультура', due:'2026-09-24', title:'Суммативная работа'},
-    {subject:'География', due:'2026-09-24', title:'Суммативная работа'},
-    {subject:'Казахский язык и литература', due:'2026-09-25', title:'Суммативная работа'},
-    {subject:'История Казахстана', due:'2026-09-25', title:'Суммативная работа'}
-  ];
-  seeds.forEach(s=>{
-    DATA.homework.push({id:uid(), done:false, createdAt:Date.now(), kind:'sor', notes:'', ...s});
-  });
-  localStorage.setItem('seeded-sor-v1','1');
-  saveData();
+  if(!localStorage.getItem('seeded-sor-v1')){
+    const seeds = [
+      {subject:'Математика', due:'2026-09-15', title:'Суммативная работа'},
+      {subject:'ИЗО', due:'2026-09-16', title:'Суммативная работа'},
+      {subject:'ИКТ', due:'2026-09-17', title:'Суммативная работа'},
+      {subject:'Физкультура', due:'2026-09-24', title:'Суммативная работа'},
+      {subject:'География', due:'2026-09-24', title:'Суммативная работа'},
+      {subject:'Казахский язык и литература', due:'2026-09-25', title:'Суммативная работа'},
+      {subject:'История Казахстана', due:'2026-09-25', title:'Суммативная работа'}
+    ];
+    seeds.forEach(s=>{
+      DATA.homework.push({id:uid(), done:false, createdAt:Date.now(), kind:'sor', notes:'', ...s});
+    });
+    localStorage.setItem('seeded-sor-v1','1');
+    saveData();
+  }
+
+  if(!localStorage.getItem('seeded-sor-v2')){
+    const seeds2 = [
+      {subject:'Химия', due:'2026-09-29', title:'Суммативная работа'},
+      {subject:'Физкультура', due:'2026-10-01', title:'Суммативная работа'},
+      {subject:'Экономика', due:'2026-10-02', title:'Суммативная работа'},
+      {subject:'Математика', due:'2026-10-07', title:'Суммативная работа'},
+      {subject:'ИЗО', due:'2026-10-07', title:'Суммативная работа'},
+      {subject:'Русский язык', due:'2026-10-07', title:'Суммативная работа'},
+      {subject:'Физкультура', due:'2026-10-08', title:'Суммативная работа'},
+      {subject:'Физика', due:'2026-10-08', title:'Суммативная работа'},
+      {subject:'Казахский язык и литература', due:'2026-10-12', title:'Суммативная работа'},
+      {subject:'Математика', due:'2026-10-13', title:'Суммативная работа'},
+      {subject:'Химия', due:'2026-10-13', title:'Суммативная работа'},
+      {subject:'Физика', due:'2026-10-15', title:'Суммативная работа'},
+      {subject:'ИКТ', due:'2026-10-15', title:'Суммативная работа'},
+      {subject:'ИЗО', due:'2026-10-19', title:'Суммативная работа'},
+      {subject:'ИЗО', due:'2026-10-21', title:'Суммативная работа'},
+      {subject:'ИКТ', due:'2026-10-22', title:'Суммативная работа'},
+      {subject:'География', due:'2026-10-22', title:'Суммативная работа'}
+    ];
+    seeds2.forEach(s=>{
+      DATA.homework.push({id:uid(), done:false, createdAt:Date.now(), kind:'sor', notes:'', ...s});
+    });
+    localStorage.setItem('seeded-sor-v2','1');
+    saveData();
+  }
 }
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
