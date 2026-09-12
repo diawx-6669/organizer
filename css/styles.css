@@ -494,6 +494,7 @@ body::before{
 .main::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(120deg,rgba(20,20,15,.72),transparent 50%,rgba(20,20,15,.42));}
 .settings-btn{margin:18px 18px 10px;padding:10px 12px;border:1px solid var(--gold-soft);background:rgba(207,159,58,.06);color:var(--gold);border-radius:8px;font-size:10px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;text-align:left;transition:all .2s ease}.settings-btn span{float:right;font-size:14px}.settings-btn:hover{background:rgba(207,159,58,.14);transform:translateY(-1px)}
 .cal-grid-wrap,.day-panel,.orbit-wrap,.goal-card,.ledger{background:rgba(26,27,21,.68);backdrop-filter:blur(10px)}
+<<<<<<< HEAD
 
 /* ---------- subject accordion ---------- */
 .subject-acc{
@@ -537,6 +538,8 @@ body::before{
   font-size: 11.5px;
   padding: 9px;
 }
+=======
+>>>>>>> 4cb9d497b7a61dbfac13a2583e3313c4ec61dd1a
 .cal-cell{min-height:92px;background:rgba(18,19,15,.72);border-radius:4px}.cal-cell.today{box-shadow:inset 0 0 0 1px var(--gold);background:rgba(207,159,58,.12)}.cal-cell.selected{background:rgba(127,169,155,.14)}
 .cal-cell:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(0,0,0,.18)}
 /* ============ INTRO SPLASH ============ */
