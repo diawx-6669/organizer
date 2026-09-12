@@ -457,71 +457,74 @@ function renderHwFilterOptions(){
   if(sel.value !== prev){ sel.value = 'all'; hwFilterSubject = 'all'; }
 }
 
+let selectedSubject = null;
+
 function renderSubjects(){
-  const wrap = document.getElementById('list-subjects');
-  wrap.innerHTML = '';
+  const panel = document.getElementById('subject-panel');
+  const detail = document.getElementById('subject-detail');
+  if(!panel || !detail) return;
+
   const groups = subjectGroups();
+  if(!selectedSubject || !groups.includes(selectedSubject)) selectedSubject = groups[0] || null;
+
   let totalOpen = 0;
-
+  panel.innerHTML = '';
   groups.forEach(subj=>{
-    const items = DATA.homework.filter(h=>h.subject===subj)
-      .sort((a,b)=>{ if(a.done!==b.done) return a.done?1:-1; return new Date(a.due||0)-new Date(b.due||0); });
-    const openCount = items.filter(h=>!h.done).length;
+    const openCount = DATA.homework.filter(h=>h.subject===subj && !h.done).length;
     totalOpen += openCount;
-    const isOpen = openSubjects.has(subj);
-
-    const acc = document.createElement('div');
-    acc.className = 'subject-acc';
-
-    const head = document.createElement('button');
-    head.className = 'subject-head';
-    head.innerHTML = `<span class="subject-name">${escapeHtml(subj)}</span>
-      <span class="subject-meta">${items.length ? openCount+' в работе' : 'пусто'}</span>
-      <span class="subject-caret ${isOpen?'open':''}">⌄</span>`;
-    head.addEventListener('click', ()=>{
-      if(openSubjects.has(subj)) openSubjects.delete(subj); else openSubjects.add(subj);
-      renderSubjects();
-    });
-    acc.appendChild(head);
-
-    const body = document.createElement('div');
-    body.className = 'subject-body';
-    body.style.display = isOpen ? 'block' : 'none';
-
-    if(items.length === 0){
-      body.innerHTML = '<div class="empty-note">Пока ничего не записано по этому предмету.</div>';
-    } else {
-      items.forEach(item=>{
-        const overdue = isOverdue(item.due, item.done);
-        const isSor = item.kind === 'sor';
-        const row = document.createElement('div');
-        row.className = 'item-row';
-        row.innerHTML = `
-          <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}'); renderSubjects();"></div>
-          <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
-            ${item.notes? `<div class="item-meta">${escapeHtml(item.notes)}</div>` : ''}</div>
-          ${isSor ? '<span class="tag sor">СОР/СОЧ</span>' : '<span></span>'}
-          <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
-          <div class="row-actions">
-            <button class="icon-btn" onclick="openModal('homework','${item.id}')">✎</button>
-            <button class="icon-btn del" onclick="deleteItem('homework','${item.id}'); renderSubjects();">✕</button>
-          </div>`;
-        body.appendChild(row);
-      });
-    }
-
-    const addRow = document.createElement('button');
-    addRow.className = 'add-btn subject-add';
-    addRow.textContent = '+ добавить в ' + subj;
-    addRow.addEventListener('click', ()=> openModal('homework', null, {subject:subj}));
-    body.appendChild(addRow);
-
-    acc.appendChild(body);
-    wrap.appendChild(acc);
+    const btn = document.createElement('button');
+    btn.className = 'subject-pill' + (subj===selectedSubject ? ' active':'');
+    btn.innerHTML = `${escapeHtml(subj)}${openCount ? `<span class="subject-pill-count">${openCount}</span>` : ''}`;
+    btn.addEventListener('click', ()=>{ selectedSubject = subj; renderSubjects(); });
+    panel.appendChild(btn);
   });
 
   const cnt = document.getElementById('cnt-subjects');
   if(cnt) cnt.textContent = totalOpen;
+
+  detail.innerHTML = '';
+  if(!selectedSubject){
+    detail.innerHTML = '<div class="empty-note">Пока нет предметов.</div>';
+    return;
+  }
+
+  const items = DATA.homework.filter(h=>h.subject===selectedSubject)
+    .sort((a,b)=>{ if(a.done!==b.done) return a.done?1:-1; return new Date(a.due||0)-new Date(b.due||0); });
+
+  const head = document.createElement('div');
+  head.className = 'subject-detail-head';
+  head.innerHTML = `<h3>${escapeHtml(selectedSubject)}</h3>`;
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-btn';
+  addBtn.textContent = '+ добавить в ' + selectedSubject;
+  addBtn.addEventListener('click', ()=> openModal('homework', null, {subject:selectedSubject}));
+  head.appendChild(addBtn);
+  detail.appendChild(head);
+
+  const body = document.createElement('div');
+  body.className = 'ledger';
+  if(items.length === 0){
+    body.innerHTML = '<div class="empty-note">Пока ничего не записано по этому предмету.</div>';
+  } else {
+    items.forEach(item=>{
+      const overdue = isOverdue(item.due, item.done);
+      const isSor = item.kind === 'sor';
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `
+        <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}'); renderSubjects();"></div>
+        <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
+          ${item.notes? `<div class="item-meta">${escapeHtml(item.notes)}</div>` : ''}</div>
+        ${isSor ? '<span class="tag sor">СОР/СОЧ</span>' : '<span></span>'}
+        <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="openModal('homework','${item.id}')">✎</button>
+          <button class="icon-btn del" onclick="deleteItem('homework','${item.id}'); renderSubjects();">✕</button>
+        </div>`;
+      body.appendChild(row);
+    });
+  }
+  detail.appendChild(body);
 }
 
 function renderEvents(){

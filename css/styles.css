@@ -496,47 +496,53 @@ body::before{
 .settings-btn{margin:18px 18px 10px;padding:10px 12px;border:1px solid var(--gold-soft);background:rgba(207,159,58,.06);color:var(--gold);border-radius:8px;font-size:10px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;text-align:left;transition:all .2s ease}.settings-btn span{float:right;font-size:14px}.settings-btn:hover{background:rgba(207,159,58,.14);transform:translateY(-1px)}
 .cal-grid-wrap,.day-panel,.orbit-wrap,.goal-card,.ledger{background:rgba(26,27,21,.68);backdrop-filter:blur(10px)}
 
-/* ---------- subject accordion ---------- */
-.subject-acc{
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  margin-bottom: 10px;
-  overflow: hidden;
-  background: rgba(18,48,58,.28);
+/* ---------- subject panel ---------- */
+.subject-panel{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  padding-bottom:16px;
+  margin-bottom:16px;
+  border-bottom:1px solid var(--line);
 }
-.subject-head{
-  width: 100%;
+.subject-pill{
   display:flex;
   align-items:center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-  text-align: left;
-  font-size: 14px;
+  gap:7px;
+  padding:8px 14px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background: rgba(18,48,58,.3);
+  color: var(--text-dim);
+  font-size:12.5px;
+  cursor:pointer;
+  transition: all .15s ease;
 }
-.subject-head:hover{ background: rgba(103,211,196,0.06); }
-.subject-name{ font-family:'Space Grotesk'; font-weight:600; flex: 1; }
-.subject-meta{ font-size: 11px; color: var(--text-faint); }
-.subject-caret{
-  color: var(--gold);
-  transition: transform .18s ease;
-  font-size: 13px;
+.subject-pill:hover{ border-color: var(--gold-soft); color: var(--text); }
+.subject-pill.active{
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #181910;
+  font-weight:600;
 }
-.subject-caret.open{ transform: rotate(180deg); }
-.subject-body{
-  padding: 2px 16px 14px;
-  border-top: 1px solid var(--line-soft);
+.subject-pill-count{
+  background: rgba(0,0,0,.18);
+  border-radius:999px;
+  font-size:10.5px;
+  padding:1px 7px;
+  line-height:1.4;
 }
-.subject-body .item-row{ padding: 12px 4px; }
-.subject-add{
-  margin-top: 8px;
-  width: 100%;
-  text-align: center;
-  font-size: 11.5px;
-  padding: 9px;
+.subject-pill.active .subject-pill-count{ background: rgba(0,0,0,.22); }
+.subject-detail-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+.subject-detail-head h3{
+  font-family:'Space Grotesk';
+  font-size:19px;
+  font-weight:600;
 }
 
 /* ---------- weekly schedule (Расписание) ---------- */
