@@ -10,6 +10,14 @@ const MONTHS = ['января','февраля','марта','апреля','м�
 const MONTHS_NOM = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const DOWS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
+const SUBJECTS = [
+  'Математика','Физика','Химия','Биология','География',
+  'Всемирная история','История Казахстана','Экономика',
+  'Казахский язык и литература','Русский язык','Английский язык',
+  'ИКТ','ИЗО','Физкультура'
+];
+let openSubjects = new Set();
+
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
 async function loadData(){
@@ -23,6 +31,7 @@ async function loadData(){
     console.log('Нет сохранённых данных ещё, начинаем с чистого листа', e);
   }
   renderAll();
+  updateSubjectsDatalist();
 }
 
 async function saveData(){
@@ -205,12 +214,14 @@ function renderHomework(){
   });
   sorted.forEach(item=>{
     const overdue = isOverdue(item.due, item.done);
+    const isSor = item.kind === 'sor';
     const row = document.createElement('div');
     row.className = 'item-row';
     row.innerHTML = `
       <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}')"></div>
       <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
         <div class="item-meta">${escapeHtml(item.subject||'')}</div></div>
+      ${isSor ? '<span class="tag sor">СОР/СОЧ</span>' : '<span></span>'}
       <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
       <div class="row-actions">
         <button class="icon-btn" onclick="openModal('homework','${item.id}')">✎</button>
@@ -218,6 +229,81 @@ function renderHomework(){
       </div>`;
     wrap.appendChild(row);
   });
+}
+
+/* ============ SUBJECTS ============ */
+function subjectGroups(){
+  const used = new Set(DATA.homework.map(h=>h.subject).filter(Boolean));
+  const list = [...SUBJECTS];
+  used.forEach(s=>{ if(!list.includes(s)) list.push(s); });
+  return list;
+}
+
+function renderSubjects(){
+  const wrap = document.getElementById('list-subjects');
+  wrap.innerHTML = '';
+  const groups = subjectGroups();
+  let totalOpen = 0;
+
+  groups.forEach(subj=>{
+    const items = DATA.homework.filter(h=>h.subject===subj)
+      .sort((a,b)=>{ if(a.done!==b.done) return a.done?1:-1; return new Date(a.due||0)-new Date(b.due||0); });
+    const openCount = items.filter(h=>!h.done).length;
+    totalOpen += openCount;
+    const isOpen = openSubjects.has(subj);
+
+    const acc = document.createElement('div');
+    acc.className = 'subject-acc';
+
+    const head = document.createElement('button');
+    head.className = 'subject-head';
+    head.innerHTML = `<span class="subject-name">${escapeHtml(subj)}</span>
+      <span class="subject-meta">${items.length ? openCount+' в работе' : 'пусто'}</span>
+      <span class="subject-caret ${isOpen?'open':''}">⌄</span>`;
+    head.addEventListener('click', ()=>{
+      if(openSubjects.has(subj)) openSubjects.delete(subj); else openSubjects.add(subj);
+      renderSubjects();
+    });
+    acc.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'subject-body';
+    body.style.display = isOpen ? 'block' : 'none';
+
+    if(items.length === 0){
+      body.innerHTML = '<div class="empty-note">Пока ничего не записано по этому предмету.</div>';
+    } else {
+      items.forEach(item=>{
+        const overdue = isOverdue(item.due, item.done);
+        const isSor = item.kind === 'sor';
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        row.innerHTML = `
+          <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}'); renderSubjects();"></div>
+          <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
+            ${item.notes? `<div class="item-meta">${escapeHtml(item.notes)}</div>` : ''}</div>
+          ${isSor ? '<span class="tag sor">СОР/СОЧ</span>' : '<span></span>'}
+          <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
+          <div class="row-actions">
+            <button class="icon-btn" onclick="openModal('homework','${item.id}')">✎</button>
+            <button class="icon-btn del" onclick="deleteItem('homework','${item.id}'); renderSubjects();">✕</button>
+          </div>`;
+        body.appendChild(row);
+      });
+    }
+
+    const addRow = document.createElement('button');
+    addRow.className = 'add-btn subject-add';
+    addRow.textContent = '+ добавить в ' + subj;
+    addRow.addEventListener('click', ()=> openModal('homework', null, {subject:subj}));
+    body.appendChild(addRow);
+
+    acc.appendChild(body);
+    wrap.appendChild(acc);
+  });
+
+  const cnt = document.getElementById('cnt-subjects');
+  if(cnt) cnt.textContent = totalOpen;
 }
 
 function renderEvents(){
@@ -276,6 +362,7 @@ function renderCounts(){
 function renderAll(){
   renderDashboard();
   renderLessons();
+  renderSubjects();
   renderHomework();
   renderEvents();
   renderGoals();
@@ -304,7 +391,8 @@ const FIELD_DEFS = {
   ],
   homework: [
     {key:'title', label:'Задание', type:'text', required:true},
-    {key:'subject', label:'Предмет', type:'text'},
+    {key:'subject', label:'Предмет', type:'text', list:'subjects-datalist'},
+    {key:'kind', label:'Тип', type:'select', options:[{value:'hw',label:'Домашка'},{value:'sor',label:'Суммативка (СОР/СОЧ)'}]},
     {key:'due', label:'Срок сдачи', type:'date'},
     {key:'notes', label:'Заметки', type:'textarea'}
   ],
@@ -323,7 +411,7 @@ const FIELD_DEFS = {
 
 const TITLES = {lessons:'урок', homework:'задание', events:'событие', goals:'цель'};
 
-function openModal(type, id){
+function openModal(type, id, prefill){
   editingType = type;
   editingId = id || null;
   const existing = id ? DATA[type].find(x=>x.id===id) : null;
@@ -331,17 +419,29 @@ function openModal(type, id){
   const box = document.getElementById('modal-box');
   box.innerHTML = `<h3>${existing? 'Изменить' : 'Добавить'} — ${TITLES[type]}</h3>` +
     fields.map(f=>{
-      const val = existing ? (existing[f.key] ?? '') : '';
+      const val = existing ? (existing[f.key] ?? '') : (prefill && prefill[f.key] !== undefined ? prefill[f.key] : (f.key==='kind' ? 'hw' : ''));
       if(f.type === 'textarea'){
         return `<div class="field"><label>${f.label}</label><textarea data-key="${f.key}">${escapeHtml(val)}</textarea></div>`;
       }
-      return `<div class="field"><label>${f.label}</label><input data-key="${f.key}" type="${f.type}" value="${escapeHtml(String(val))}"></div>`;
+      if(f.type === 'select'){
+        const opts = f.options.map(o=>`<option value="${escapeHtml(o.value)}" ${o.value===val?'selected':''}>${escapeHtml(o.label)}</option>`).join('');
+        return `<div class="field"><label>${f.label}</label><select data-key="${f.key}">${opts}</select></div>`;
+      }
+      const listAttr = f.list ? ` list="${f.list}"` : '';
+      return `<div class="field"><label>${f.label}</label><input data-key="${f.key}" type="${f.type}"${listAttr} value="${escapeHtml(String(val))}"></div>`;
     }).join('') +
     `<div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal()">Отмена</button>
       <button class="btn-primary" onclick="submitModal()">Сохранить</button>
     </div>`;
   document.getElementById('overlay').classList.add('open');
+  updateSubjectsDatalist();
+}
+
+function updateSubjectsDatalist(){
+  const dl = document.getElementById('subjects-datalist');
+  if(!dl) return;
+  dl.innerHTML = SUBJECTS.map(s=>`<option value="${escapeHtml(s)}"></option>`).join('');
 }
 
 function closeModal(){
@@ -476,34 +576,45 @@ function escapeHtml(str){
 /* ============ INIT ============ */
 loadData();
 
-/* ============ INTRO SPLASH CONTROL ============ */
-(function(){
-  const splash = document.getElementById('intro-splash');
-  const skipBtn = document.getElementById('intro-skip');
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const alreadyShown = sessionStorage.getItem('intro-shown');
-
-  if(!splash) return;
-
-  if(alreadyShown || reduceMotion){
-    splash.classList.add('done');
-    return;
-  }
-  sessionStorage.setItem('intro-shown', '1');
-
-  let closed = false;
-  function closeIntro(){
-    if(closed) return;
-    closed = true;
-    splash.classList.add('closing');
-    setTimeout(()=> splash.classList.add('done'), 560);
-  }
-
-  const autoTimer = setTimeout(closeIntro, 3400);
-  skipBtn.addEventListener('click', ()=>{ clearTimeout(autoTimer); closeIntro(); });
-  splash.addEventListener('click', (e)=>{ if(e.target===splash){ clearTimeout(autoTimer); closeIntro(); } });
-  document.addEventListener('keydown', function onKey(e){
-    clearTimeout(autoTimer); closeIntro();
-    document.removeEventListener('keydown', onKey);
-  }, {once:true});
+/* ============ DASHBOARD VIDEO ============ */
+(function initDashboardVideo(){
+  const videos = document.querySelectorAll('.dashboard-video-item');
+  if(!videos.length) return;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  videos.forEach(video => {
+    video.playbackRate = reduced ? 0.65 : 0.82;
+    video.addEventListener('loadedmetadata', () => video.play().catch(() => {}), {once:true});
+  });
+  document.addEventListener('visibilitychange', () => {
+    videos.forEach(video => document.hidden ? video.pause() : video.play().catch(() => {}));
+  });
 })();
+
+/* ============ INTRO SPLASH CONTROL ============ */
+const SETTINGS_KEY = 'organizer-settings';
+let SCENE_SETTINGS = Object.assign({enabled:true, loop:true, duration:16}, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'));
+function saveSceneSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(SCENE_SETTINGS)); }
+function openSettings(){
+  const box = document.getElementById('modal-box');
+  box.innerHTML = `<h3>Настройки сцены</h3>
+    <div class="settings-card"><label><input id="scene-enabled" type="checkbox" ${SCENE_SETTINGS.enabled?'checked':''}> Показывать сцену при входе</label></div>
+    <div class="settings-card"><label><input id="scene-loop" type="checkbox" ${SCENE_SETTINGS.loop?'checked':''}> Повторять анимацию бесконечно</label><small>При выключении сцена проигрывается один раз за вход.</small></div>
+    <div class="field"><label>Длительность сцены: <b id="duration-value">${SCENE_SETTINGS.duration} сек.</b></label><input id="scene-duration" type="range" min="8" max="40" step="4" value="${SCENE_SETTINGS.duration}"></div>
+    <div class="modal-actions"><button class="btn-secondary" onclick="closeModal()">Отмена</button><button class="btn-primary" onclick="saveSettings()">Сохранить</button></div>`;
+  document.getElementById('scene-duration').addEventListener('input', e=>document.getElementById('duration-value').textContent=e.target.value+' сек.');
+  document.getElementById('overlay').classList.add('open');
+}
+function saveSettings(){
+  SCENE_SETTINGS={enabled:document.getElementById('scene-enabled').checked,loop:document.getElementById('scene-loop').checked,duration:Number(document.getElementById('scene-duration').value)};
+  saveSceneSettings(); closeModal(); launchIntro(true);
+}
+function launchIntro(force=false){
+  const splash=document.getElementById('intro-splash'); if(!splash) return;
+  if(!force && (!SCENE_SETTINGS.enabled || sessionStorage.getItem('intro-shown'))) { splash.classList.add('done'); return; }
+  splash.classList.remove('done','closing'); document.documentElement.style.setProperty('--scene-duration',SCENE_SETTINGS.duration+'s');
+  splash.classList.toggle('intro-loop',SCENE_SETTINGS.loop); sessionStorage.setItem('intro-shown','1');
+  let closed=false; const closeIntro=()=>{if(closed)return;closed=true;splash.classList.add('closing');setTimeout(()=>splash.classList.add('done'),1400)};
+  const timer=setTimeout(closeIntro,SCENE_SETTINGS.duration*1000); document.getElementById('intro-skip').onclick=()=>{clearTimeout(timer);closeIntro()};
+  if(SCENE_SETTINGS.loop){splash.querySelectorAll('.intro-art').forEach(el=>el.style.animationIterationCount='infinite')}
+}
+launchIntro();

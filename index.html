@@ -8,34 +8,18 @@
 </head>
 <body>
 
-<div class="intro-splash" id="intro-splash">
+<div class="intro-splash" id="intro-splash" aria-label="Вступительная анимация">
+  <div class="intro-art intro-art-one"></div>
+  <div class="intro-art intro-art-two"></div>
+  <div class="intro-art intro-art-three"></div>
+  <div class="intro-vignette"></div>
   <div class="intro-stage">
-    <div class="intro-book">
-      <div class="book-page page-back"></div>
-      <div class="book-page page-mid"></div>
-      <div class="book-spread">
-        <div class="book-leaf leaf-left">
-          <div class="leaf-lines"></div>
-        </div>
-        <div class="book-leaf leaf-right">
-          <div class="leaf-lines"></div>
-        </div>
-      </div>
-      <div class="book-cover">
-        <div class="cover-mark">Я</div>
-        <div class="cover-title">Мой<br>органайзер</div>
-      </div>
-    </div>
-    <div class="intro-chips">
-      <span class="intro-chip" style="--c:var(--tab3)">уроки</span>
-      <span class="intro-chip" style="--c:var(--tab1)">домашка</span>
-      <span class="intro-chip" style="--c:var(--tab4)">события</span>
-      <span class="intro-chip" style="--c:var(--tab2)">цели</span>
-      <span class="intro-chip" style="--c:var(--tab6)">календарь</span>
-    </div>
-    <div class="intro-caption">открываю твой органайзер…</div>
+    <div class="intro-kicker">личное пространство для мыслей</div>
+    <div class="intro-title">Собери свой<br><em>день красиво.</em></div>
+    <div class="intro-rule"></div>
+    <div class="intro-caption">открываю твой органайзер</div>
   </div>
-  <button class="intro-skip" id="intro-skip">пропустить ›</button>
+  <button class="intro-skip" id="intro-skip">пропустить</button>
 </div>
 
 <div class="app">
@@ -47,11 +31,13 @@
     </div>
     <button class="tab-btn active" data-view="dashboard" style="--dotc:var(--tab5)"><i class="dot"></i><span class="label">Обзор</span></button>
     <button class="tab-btn" data-view="lessons" style="--dotc:var(--tab3)"><i class="dot"></i><span class="label">Уроки</span><span class="count" id="cnt-lessons">0</span></button>
+    <button class="tab-btn" data-view="subjects" style="--dotc:var(--tab6)"><i class="dot"></i><span class="label">Предметы</span><span class="count" id="cnt-subjects">0</span></button>
     <button class="tab-btn" data-view="homework" style="--dotc:var(--tab1)"><i class="dot"></i><span class="label">Домашка</span><span class="count" id="cnt-homework">0</span></button>
     <button class="tab-btn" data-view="events" style="--dotc:var(--tab4)"><i class="dot"></i><span class="label">Мероприятия</span><span class="count" id="cnt-events">0</span></button>
     <button class="tab-btn" data-view="goals" style="--dotc:var(--tab2)"><i class="dot"></i><span class="label">Цели</span><span class="count" id="cnt-goals">0</span></button>
     <button class="tab-btn" data-view="calendar" style="--dotc:var(--tab6)"><i class="dot"></i><span class="label">Календарь</span></button>
     <div class="sync-note"><span class="sync-dotpulse" id="save-indicator"></span><b>Хранится локально.</b> Все данные лежат прямо в этом браузере на этом Mac — никуда не отправляются.</div>
+    <button class="settings-btn" onclick="openSettings()" title="Настройки анимации">настройки сцены <span>↗</span></button>
     <div class="backup-row">
       <button class="backup-btn" onclick="exportBackup()" title="Скачать резервную копию данных">⭳ бэкап</button>
       <label class="backup-btn" title="Загрузить данные из файла бэкапа">
@@ -62,6 +48,11 @@
   </nav>
 
   <main class="main">
+    <div class="dashboard-video" aria-hidden="true">
+      <video class="dashboard-video-item dashboard-video-one" autoplay muted loop playsinline preload="metadata" src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/AQOzh00WUInMo8BAMhzUaTN0jzVgD8kTSAmnEr3IjA2Im3dMKBRL5CuZrX2TXhc677QVdKJdJO3-3TD21dlawBMwl4iFupdHVkyNyEyeGc.mp4"></video>
+      <video class="dashboard-video-item dashboard-video-two" autoplay muted loop playsinline preload="metadata" src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/AQO2edfYh65nr0y8Suh8pp3Tcn0lPzo5hW1j_wHeIsXOnT_AVB_MWkl_5MukvyF-pIRuD8Lb3pgRXUaaPjS2fKTt3a4zru.mp4"></video>
+      <div class="dashboard-video-shade"></div>
+    </div>
 
     <!-- DASHBOARD -->
     <section class="view active" id="view-dashboard">
@@ -71,6 +62,27 @@
           <div class="date" id="today-str"></div>
         </div>
         <div class="today-badge" id="today-badge">сегодня</div>
+      </div>
+
+      <div class="dashboard-hero">
+        <div class="hero-copy">
+          <span class="eyebrow">сегодняшняя композиция</span>
+          <h1>День, который<br><em>имеет форму.</em></h1>
+          <p>Собери важное вокруг одного спокойного центра.</p>
+        </div>
+        <div class="hero-object" aria-label="Анимированные песочные часы" role="img">
+          <div class="hourglass-glow"></div>
+          <div class="hourglass"><span class="glass-top"></span><span class="glass-waist"></span><span class="glass-bottom"></span><span class="sand sand-top"></span><span class="sand sand-fall"></span><span class="sand sand-pool"></span></div>
+        </div>
+        <div class="hero-note"><span>01</span><span>в фокусе</span></div>
+      </div>
+
+      <div class="quick-actions" aria-label="Быстрые действия">
+        <div class="quick-heading"><span>быстрый старт</span><strong>Что добавим в день?</strong></div>
+        <button class="quick-action" onclick="openModal('lessons')"><span class="quick-icon">↗</span><span><b>Урок</b><small>новое занятие</small></span></button>
+        <button class="quick-action" onclick="openModal('homework')"><span class="quick-icon">✦</span><span><b>Домашка</b><small>задача с дедлайном</small></span></button>
+        <button class="quick-action" onclick="openModal('events')"><span class="quick-icon">◷</span><span><b>Событие</b><small>важная дата</small></span></button>
+        <button class="quick-action" onclick="openModal('goals')"><span class="quick-icon">◎</span><span><b>Цель</b><small>движение вперёд</small></span></button>
       </div>
 
       <div class="dash-grid">
@@ -101,16 +113,24 @@
     <!-- LESSONS -->
     <section class="view" id="view-lessons">
       <div class="section-head">
-        <h2>Уроки</h2>
+        <div><h2>Уроки</h2><p class="section-hint">Расписание занятий и важные темы на неделю.</p></div>
         <button class="add-btn" onclick="openModal('lessons')">+ добавить урок</button>
       </div>
       <div class="ledger" id="list-lessons"></div>
     </section>
 
+    <!-- SUBJECTS -->
+    <section class="view" id="view-subjects">
+      <div class="section-head">
+        <div><h2>Предметы</h2><p class="section-hint">Открой предмет — там суммативки и домашка по нему. Добавляй что угодно вручную.</p></div>
+      </div>
+      <div id="list-subjects"></div>
+    </section>
+
     <!-- HOMEWORK -->
     <section class="view" id="view-homework">
       <div class="section-head">
-        <h2>Домашка</h2>
+        <div><h2>Домашка</h2><p class="section-hint">Держи дедлайны под контролем и закрывай задачи по одной.</p></div>
         <button class="add-btn" onclick="openModal('homework')">+ добавить задание</button>
       </div>
       <div class="ledger" id="list-homework"></div>
@@ -119,7 +139,7 @@
     <!-- EVENTS -->
     <section class="view" id="view-events">
       <div class="section-head">
-        <h2>Мероприятия и хакатоны</h2>
+        <div><h2>Мероприятия и хакатоны</h2><p class="section-hint">Возможности, встречи и даты, которые нельзя пропустить.</p></div>
         <button class="add-btn" onclick="openModal('events')">+ добавить событие</button>
       </div>
       <div class="ledger" id="list-events"></div>
@@ -128,7 +148,7 @@
     <!-- GOALS -->
     <section class="view" id="view-goals">
       <div class="section-head">
-        <h2>Цели на будущее</h2>
+        <div><h2>Цели на будущее</h2><p class="section-hint">Большие намерения превращаются в маленькие шаги.</p></div>
         <button class="add-btn" onclick="openModal('goals')">+ добавить цель</button>
       </div>
       <div id="list-goals"></div>
@@ -137,7 +157,7 @@
     <!-- CALENDAR -->
     <section class="view" id="view-calendar">
       <div class="section-head">
-        <h2>Календарь</h2>
+        <div><h2>Календарь</h2><p class="section-hint">Выбери день, чтобы увидеть всё запланированное.</p></div>
       </div>
       <div class="cal-head">
         <div class="cal-month-label" id="cal-month-label"></div>
@@ -163,6 +183,8 @@
 <div class="overlay" id="overlay">
   <div class="modal" id="modal-box"></div>
 </div>
+
+<datalist id="subjects-datalist"></datalist>
 
 <script src="js/app.js"></script>
 </body>
