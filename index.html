@@ -34,8 +34,10 @@
     <button class="tab-btn" data-view="lessons" style="--dotc:var(--tab3)"><i class="dot"></i><span class="label">Уроки</span><span class="count" id="cnt-lessons">0</span></button>
     <button class="tab-btn" data-view="subjects" style="--dotc:var(--tab6)"><i class="dot"></i><span class="label">Предметы</span><span class="count" id="cnt-subjects">0</span></button>
     <button class="tab-btn" data-view="homework" style="--dotc:var(--tab1)"><i class="dot"></i><span class="label">Домашка</span><span class="count" id="cnt-homework">0</span></button>
+    <button class="tab-btn" data-view="summatives" style="--dotc:var(--brick)"><i class="dot"></i><span class="label">Суммативки</span><span class="count" id="cnt-summatives">0</span></button>
     <button class="tab-btn" data-view="events" style="--dotc:var(--tab4)"><i class="dot"></i><span class="label">Мероприятия</span><span class="count" id="cnt-events">0</span></button>
     <button class="tab-btn" data-view="goals" style="--dotc:var(--tab2)"><i class="dot"></i><span class="label">Цели</span><span class="count" id="cnt-goals">0</span></button>
+    <button class="tab-btn" data-view="notes" style="--dotc:var(--tab7)"><i class="dot"></i><span class="label">Заметки</span><span class="count" id="cnt-notes">0</span></button>
     <button class="tab-btn" data-view="calendar" style="--dotc:var(--tab6)"><i class="dot"></i><span class="label">Календарь</span></button>
     <div class="sync-note"><span class="sync-dotpulse" id="save-indicator"></span><b>Хранится локально.</b> Все данные лежат прямо в этом браузере на этом Mac — никуда не отправляются.</div>
     <button class="settings-btn" onclick="openSettings()" title="Настройки анимации">настройки сцены <span>↗</span></button>
@@ -97,6 +99,7 @@
           <svg class="orbit-svg" id="orbit-svg" viewBox="0 0 300 300"></svg>
           <div class="orbit-legend">
             <span><i style="background:var(--tab1)"></i>домашка</span>
+            <span><i style="background:var(--brick)"></i>суммативки</span>
             <span><i style="background:var(--tab4)"></i>мероприятия</span>
             <span><i style="background:var(--tab2)"></i>цели</span>
           </div>
@@ -106,6 +109,8 @@
           <div class="stat-list">
             <div class="stat-row"><span class="label">Уроков в списке</span><span class="value" id="s-lessons">0</span></div>
             <div class="stat-row"><span class="label">Домашки не сделано</span><span class="value" id="s-homework">0</span></div>
+            <div class="stat-row"><span class="label">Суммативок впереди</span><span class="value" id="s-summatives">0</span></div>
+            <div class="stat-row"><span class="label">Средний балл</span><span class="value" id="s-avg-grade">—</span></div>
             <div class="stat-row"><span class="label">Мероприятий впереди</span><span class="value" id="s-events">0</span></div>
             <div class="stat-row"><span class="label">Целей в работе</span><span class="value" id="s-goals">0</span></div>
           </div>
@@ -163,6 +168,20 @@
       <div class="ledger" id="list-homework"></div>
     </section>
 
+    <!-- SUMMATIVES -->
+    <section class="view" id="view-summatives">
+      <div class="section-head">
+        <div><h2>Суммативки</h2><p class="section-hint">СОР и СОЧ отдельно от обычной домашки — с баллами и средним процентом по предметам.</p></div>
+        <button class="add-btn" onclick="openModal('summatives')">+ добавить суммативку</button>
+      </div>
+      <div class="summ-stats" id="summ-stats"></div>
+      <div class="hw-filter-row">
+        <label for="summ-subject-filter">Предмет:</label>
+        <select id="summ-subject-filter" onchange="setSummFilter(this.value)"></select>
+      </div>
+      <div class="ledger" id="list-summatives"></div>
+    </section>
+
     <!-- EVENTS -->
     <section class="view" id="view-events">
       <div class="section-head">
@@ -179,6 +198,15 @@
         <button class="add-btn" onclick="openModal('goals')">+ добавить цель</button>
       </div>
       <div id="list-goals"></div>
+    </section>
+
+    <!-- NOTES -->
+    <section class="view" id="view-notes">
+      <div class="section-head">
+        <div><h2>Заметки</h2><p class="section-hint">Мысли, идеи и короткие напоминания, которые не привязаны к дедлайну.</p></div>
+        <button class="add-btn" onclick="openModal('notes')">+ добавить заметку</button>
+      </div>
+      <div id="list-notes"></div>
     </section>
 
     <!-- CALENDAR -->
