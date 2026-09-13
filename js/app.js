@@ -335,8 +335,19 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
     if(btn.dataset.view === 'calendar') renderCalendar();
     if(btn.dataset.view === 'schedule') renderSchedule();
+    closeMobileNav();
   });
 });
+
+/* ============ MOBILE NAV DRAWER ============ */
+function openMobileNav(){
+  document.getElementById('tabs').classList.add('open');
+  document.getElementById('nav-scrim').classList.add('open');
+}
+function closeMobileNav(){
+  document.getElementById('tabs').classList.remove('open');
+  document.getElementById('nav-scrim').classList.remove('open');
+}
 
 /* ============ DASHBOARD ============ */
 function greetTime(){
@@ -1137,6 +1148,7 @@ let paletteMatches = [];
 let paletteActiveIndex = -1;
 
 function openPalette(){
+  closeMobileNav();
   const overlay = document.getElementById('palette-overlay');
   const input = document.getElementById('palette-input');
   overlay.classList.add('open');

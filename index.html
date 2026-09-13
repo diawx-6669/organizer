@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Мой органайзер</title>
 <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -22,8 +22,16 @@
   <button class="intro-skip" id="intro-skip">пропустить</button>
 </div>
 
+<div class="mobile-topbar" id="mobile-topbar">
+  <button class="mobile-icon-btn" onclick="openMobileNav()" aria-label="Открыть меню">☰</button>
+  <div class="mobile-topbar-title">Мой органайзер</div>
+  <button class="mobile-icon-btn" onclick="openPalette()" aria-label="Поиск">🔍</button>
+</div>
+<div class="nav-scrim" id="nav-scrim" onclick="closeMobileNav()"></div>
+
 <div class="app">
   <nav class="tabs" id="tabs">
+    <button class="mobile-icon-btn nav-close-btn" onclick="closeMobileNav()" aria-label="Закрыть меню">✕</button>
     <div class="brand">
       <div class="mark">Я</div>
       <div class="name">Мой органайзер</div>
