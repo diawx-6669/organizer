@@ -19,6 +19,7 @@
   --tab4: #c99be8;
   --tab5: #67d3c4;
   --tab6: #9fc4a4;
+  --tab7: #b8a8e8;
   --radius: 8px;
 }
 
@@ -122,6 +123,8 @@ button, input, textarea, select{
 .tab-btn:nth-child(6){animation-delay:.28s}
 .tab-btn:nth-child(7){animation-delay:.33s}
 .tab-btn:nth-child(8){animation-delay:.38s}
+.tab-btn:nth-child(9){animation-delay:.43s}
+.tab-btn:nth-child(10){animation-delay:.48s}
 @keyframes tabIn{ to{opacity:1; transform:translateX(0);} }
 
 .tab-btn .dot{
@@ -319,6 +322,9 @@ button, input, textarea, select{
 }
 .tag.overdue{ color: var(--brick); border-color: rgba(193,85,77,0.4); }
 .tag.sor{ color: var(--brick); border-color: rgba(193,85,77,0.5); background: rgba(193,85,77,0.1); font-weight:600; }
+.tag.sor.lowgrade{ color:#ff9d8f; border-color:rgba(255,120,100,.6); background:rgba(255,90,70,.14); }
+.tag.priority-high{ color: var(--brick); border-color: rgba(193,85,77,0.45); background: rgba(193,85,77,0.08); font-weight:600; }
+.tag.priority-low{ color: var(--text-faint); opacity:.75; }
 .row-actions{ display:flex; gap:8px; }
 .icon-btn{
   background:none; border:none; color:var(--text-faint); cursor:pointer;
@@ -1381,6 +1387,59 @@ body::before{
   50%{opacity:.95;transform:scale(1.12)}
 }
 @keyframes watchMinute{to{transform:rotate(660deg)}}
+
+/* ============ SUMMATIVES STATS ============ */
+.summ-stats{
+  display:flex;
+  flex-wrap:wrap;
+  gap:16px;
+  align-items:stretch;
+  margin-bottom:18px;
+  padding:18px 20px;
+  border:1px solid var(--ui-line, var(--line));
+  border-radius:16px;
+  background:rgba(16,27,42,.62);
+  box-shadow:0 16px 36px rgba(0,0,0,.1);
+}
+.summ-stat-card{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  min-width:150px;
+  padding-right:18px;
+  border-right:1px solid var(--ui-line, var(--line));
+}
+.summ-stat-label{ font-size:11px; color:var(--ui-muted, var(--text-faint)); }
+.summ-stat-value{ font-family:'Space Grotesk'; font-size:30px; color:var(--ui-text, var(--text)); margin-top:4px; }
+.summ-stat-sub{ font-size:11px; color:var(--ui-soft, var(--text-faint)); margin-top:4px; }
+.summ-subject-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+  flex:1;
+}
+.summ-subject-pill{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 12px;
+  border-radius:999px;
+  border:1px solid var(--ui-line, var(--line));
+  background:rgba(140,226,221,.06);
+  font-size:11.5px;
+  color:var(--ui-muted, var(--text-dim));
+}
+.summ-subject-pill b{ color:var(--ui-cyan, var(--gold)); font-family:'Space Grotesk'; }
+.summ-subject-pill.low{ border-color:rgba(255,120,100,.45); background:rgba(255,90,70,.1); }
+.summ-subject-pill.low b{ color:#ff9d8f; }
+@media (max-width:760px){
+  .summ-stat-card{ border-right:none; padding-right:0; border-bottom:1px solid var(--ui-line, var(--line)); padding-bottom:12px; width:100%; }
+}
+
+/* ============ NOTES ============ */
+.note-card .goal-title{ margin-bottom:2px; }
+.note-card .goal-desc{ white-space:pre-wrap; }
 @media (max-width:760px){
   #view-dashboard .hero-object{right:1%;margin-right:0;transform:scale(.86)}
 }

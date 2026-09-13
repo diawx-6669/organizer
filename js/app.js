@@ -1,6 +1,6 @@
 /* ============ STATE & STORAGE ============ */
 const STORAGE_KEY = 'student-data';
-let DATA = { lessons: [], homework: [], events: [], goals: [] };
+let DATA = { lessons: [], homework: [], events: [], goals: [], summatives: [], notes: [] };
 let editingId = null;
 let editingType = null;
 let calDate = new Date();
@@ -151,9 +151,8 @@ function renderSchedule(){
       if(!isHomeroom) cell.style.background = hexToRgba(SCHED_COLORS[subj]||'#888', 0.16);
       if(!isHomeroom) cell.style.borderLeft = '3px solid ' + (SCHED_COLORS[subj]||'#888');
 
-      const items = DATA.homework.filter(h => h.subject===rus && h.due===dateStr);
-      const sor = items.filter(i=>i.kind==='sor');
-      const hw = items.filter(i=>i.kind!=='sor');
+      const hw = DATA.homework.filter(h => h.subject===rus && h.due===dateStr);
+      const sor = DATA.summatives.filter(s => s.subject===rus && s.due===dateStr);
 
       const subjEl = document.createElement('div');
       subjEl.className = 'sched-subj';
@@ -161,14 +160,14 @@ function renderSchedule(){
       cell.appendChild(subjEl);
 
       [...sor, ...hw].forEach(item=>{
+        const isSor = sor.includes(item);
         const tag = document.createElement('div');
-        const isSor = item.kind==='sor';
         tag.className = 'sched-tag' + (isSor?' sor':'') + (item.done?' done':'');
         tag.textContent = (isSor ? '◆ ' : (item.done ? '✓ ' : '• ')) + item.title;
-        tag.title = isSor ? 'Нажми, чтобы изменить' : 'Нажми, чтобы отметить сделанным';
+        tag.title = isSor ? 'Нажми, чтобы изменить суммативку' : 'Нажми, чтобы отметить сделанным';
         tag.addEventListener('click', (e)=>{
           e.stopPropagation();
-          if(isSor){ openModal('homework', item.id); }
+          if(isSor){ openModal('summatives', item.id); }
           else { toggleDone('homework', item.id); }
         });
         cell.appendChild(tag);
@@ -206,7 +205,7 @@ function seedKnownSummatives(){
       {subject:'История Казахстана', due:'2026-09-25', title:'Суммативная работа'}
     ];
     seeds.forEach(s=>{
-      DATA.homework.push({id:uid(), done:false, createdAt:Date.now(), kind:'sor', notes:'', ...s});
+      DATA.summatives.push({id:uid(), done:false, createdAt:Date.now(), kind:'sor', score:null, maxScore:100, notes:'', ...s});
     });
     localStorage.setItem('seeded-sor-v1','1');
     saveData();
@@ -233,11 +232,26 @@ function seedKnownSummatives(){
       {subject:'География', due:'2026-10-22', title:'Суммативная работа'}
     ];
     seeds2.forEach(s=>{
-      DATA.homework.push({id:uid(), done:false, createdAt:Date.now(), kind:'sor', notes:'', ...s});
+      DATA.summatives.push({id:uid(), done:false, createdAt:Date.now(), kind:'sor', score:null, maxScore:100, notes:'', ...s});
     });
     localStorage.setItem('seeded-sor-v2','1');
     saveData();
   }
+}
+
+/* move any legacy homework items (old 'kind: sor' scheme) into the dedicated summatives list, once */
+function migrateLegacySummatives(){
+  const legacy = DATA.homework.filter(h=>h.kind==='sor');
+  if(legacy.length===0) return;
+  legacy.forEach(h=>{
+    DATA.summatives.push({
+      id: h.id, subject: h.subject||'', title: h.title||'Суммативная работа',
+      kind: 'sor', due: h.due||'', score: null, maxScore: 100,
+      notes: h.notes||'', done: !!h.done, createdAt: h.createdAt||Date.now()
+    });
+  });
+  DATA.homework = DATA.homework.filter(h=>h.kind!=='sor');
+  saveData();
 }
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -247,11 +261,14 @@ async function loadData(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
-      DATA = Object.assign({lessons:[],homework:[],events:[],goals:[]}, parsed);
+      DATA = Object.assign({lessons:[],homework:[],events:[],goals:[],summatives:[],notes:[]}, parsed);
+      if(!Array.isArray(DATA.summatives)) DATA.summatives = [];
+      if(!Array.isArray(DATA.notes)) DATA.notes = [];
     }
   }catch(e){
     console.log('Нет сохранённых данных ещё, начинаем с чистого листа', e);
   }
+  migrateLegacySummatives();
   seedKnownSummatives();
   renderAll();
   updateSubjectsDatalist();
@@ -293,7 +310,10 @@ function importBackup(file){
   reader.onload = () => {
     try{
       const parsed = JSON.parse(reader.result);
-      DATA = Object.assign({lessons:[],homework:[],events:[],goals:[]}, parsed);
+      DATA = Object.assign({lessons:[],homework:[],events:[],goals:[],summatives:[],notes:[]}, parsed);
+      if(!Array.isArray(DATA.summatives)) DATA.summatives = [];
+      if(!Array.isArray(DATA.notes)) DATA.notes = [];
+      migrateLegacySummatives();
       saveData();
       renderAll();
       if(document.querySelector('.tab-btn[data-view="calendar"]').classList.contains('active')) renderCalendar();
@@ -334,14 +354,19 @@ function renderDashboard(){
   document.getElementById('s-lessons').textContent = DATA.lessons.length;
   const hwLeft = DATA.homework.filter(h=>!h.done).length;
   document.getElementById('s-homework').textContent = hwLeft;
+  const summUpcoming = DATA.summatives.filter(s=>!s.done && (!s.due || new Date(s.due) >= new Date(now.toDateString()))).length;
+  document.getElementById('s-summatives').textContent = summUpcoming;
+  const gradeStats = summativeStats();
+  document.getElementById('s-avg-grade').textContent = gradeStats.overall!=null ? gradeStats.overall+'%' : '—';
   const evUpcoming = DATA.events.filter(e=> !e.date || new Date(e.date) >= new Date(now.toDateString())).length;
   document.getElementById('s-events').textContent = evUpcoming;
   const goalsActive = DATA.goals.filter(g=>(g.progress||0) < 100).length;
   document.getElementById('s-goals').textContent = goalsActive;
 
-  // upcoming list: merge homework+events with dates, sorted, next 5
+  // upcoming list: merge homework+summatives+events with dates, sorted, next 5
   let items = [];
   DATA.homework.filter(h=>!h.done && h.due).forEach(h=> items.push({date:h.due, title:h.title, sub:h.subject||'домашка', kind:'hw'}));
+  DATA.summatives.filter(s=>!s.done && s.due).forEach(s=> items.push({date:s.due, title:s.title, sub:(s.kind==='soch'?'СОЧ':'СОР')+(s.subject?' · '+s.subject:''), kind:'sor'}));
   DATA.events.filter(e=>e.date).forEach(e=> items.push({date:e.date, title:e.title, sub:e.type||'мероприятие', kind:'ev'}));
   items = items.filter(i => new Date(i.date) >= new Date(now.toDateString()));
   items.sort((a,b)=> new Date(a.date) - new Date(b.date));
@@ -369,9 +394,10 @@ function renderOrbit(){
   const svg = document.getElementById('orbit-svg');
   const cx=150, cy=150;
   const rings = [
-    {r:60, color:'var(--tab1)', items: DATA.homework.filter(h=>!h.done).slice(0,8)},
-    {r:95, color:'var(--tab4)', items: DATA.events.slice(0,10)},
-    {r:128, color:'var(--tab2)', items: DATA.goals.filter(g=>(g.progress||0)<100).slice(0,12)}
+    {r:56, color:'var(--tab1)', items: DATA.homework.filter(h=>!h.done).slice(0,8)},
+    {r:84, color:'var(--brick)', items: DATA.summatives.filter(s=>!s.done).slice(0,10)},
+    {r:112, color:'var(--tab4)', items: DATA.events.slice(0,10)},
+    {r:140, color:'var(--tab2)', items: DATA.goals.filter(g=>(g.progress||0)<100).slice(0,12)}
   ];
   let svgContent = `<circle cx="${cx}" cy="${cy}" r="3.5" fill="var(--gold)"/>`;
   rings.forEach((ring, ringIdx)=>{
@@ -445,14 +471,13 @@ function renderHomework(){
   });
   sorted.forEach(item=>{
     const overdue = isOverdue(item.due, item.done);
-    const isSor = item.kind === 'sor';
     const row = document.createElement('div');
     row.className = 'item-row';
     row.innerHTML = `
       <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}')"></div>
       <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
         <div class="item-meta">${escapeHtml(item.subject||'')}</div></div>
-      ${isSor ? '<span class="tag sor">СОР/СОЧ</span>' : '<span></span>'}
+      ${priorityTagHtml(item.priority)}
       <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
       <div class="row-actions">
         <button class="icon-btn" onclick="openModal('homework','${item.id}')">✎</button>
@@ -462,9 +487,15 @@ function renderHomework(){
   });
 }
 
+function priorityTagHtml(priority){
+  if(priority === 'high') return '<span class="tag priority-high">Высокий</span>';
+  if(priority === 'low') return '<span class="tag priority-low">Низкий</span>';
+  return '<span></span>';
+}
+
 /* ============ SUBJECTS ============ */
 function subjectGroups(){
-  const used = new Set(DATA.homework.map(h=>h.subject).filter(Boolean));
+  const used = new Set([...DATA.homework.map(h=>h.subject), ...DATA.summatives.map(s=>s.subject)].filter(Boolean));
   const list = [...SUBJECTS];
   used.forEach(s=>{ if(!list.includes(s)) list.push(s); });
   return list;
@@ -498,7 +529,8 @@ function renderSubjects(){
   let totalOpen = 0;
   panel.innerHTML = '';
   groups.forEach(subj=>{
-    const openCount = DATA.homework.filter(h=>h.subject===subj && !h.done).length;
+    const openCount = DATA.homework.filter(h=>h.subject===subj && !h.done).length
+      + DATA.summatives.filter(s=>s.subject===subj && !s.done).length;
     totalOpen += openCount;
     const btn = document.createElement('button');
     btn.className = 'subject-pill' + (subj===selectedSubject ? ' active':'');
@@ -536,14 +568,13 @@ function renderSubjects(){
   } else {
     items.forEach(item=>{
       const overdue = isOverdue(item.due, item.done);
-      const isSor = item.kind === 'sor';
       const row = document.createElement('div');
       row.className = 'item-row';
       row.innerHTML = `
         <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}'); renderSubjects();"></div>
         <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
           ${item.notes? `<div class="item-meta">${escapeHtml(item.notes)}</div>` : ''}</div>
-        ${isSor ? '<span class="tag sor">СОР/СОЧ</span>' : '<span></span>'}
+        ${priorityTagHtml(item.priority)}
         <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
         <div class="row-actions">
           <button class="icon-btn" onclick="openModal('homework','${item.id}')">✎</button>
@@ -553,6 +584,31 @@ function renderSubjects(){
     });
   }
   detail.appendChild(body);
+
+  const summItems = DATA.summatives.filter(s=>s.subject===selectedSubject)
+    .sort((a,b)=>{ if(a.done!==b.done) return a.done?1:-1; return new Date(a.due||0)-new Date(b.due||0); });
+
+  const summHead = document.createElement('div');
+  summHead.className = 'subject-detail-head';
+  summHead.style.marginTop = '22px';
+  summHead.innerHTML = `<h3 style="font-size:15px">Суммативки</h3>`;
+  const summAddBtn = document.createElement('button');
+  summAddBtn.className = 'add-btn';
+  summAddBtn.textContent = '+ суммативка';
+  summAddBtn.addEventListener('click', ()=> openModal('summatives', null, {subject:selectedSubject}));
+  summHead.appendChild(summAddBtn);
+  detail.appendChild(summHead);
+
+  const summBody = document.createElement('div');
+  summBody.className = 'ledger';
+  if(summItems.length === 0){
+    summBody.innerHTML = '<div class="empty-note">Суммативок по этому предмету пока нет.</div>';
+  } else {
+    summItems.forEach(item=>{
+      summBody.appendChild(makeRow(summativeRowHtml(item, {hideSubject:true, afterToggle:'renderSubjects();', afterDelete:'renderSubjects();'})));
+    });
+  }
+  detail.appendChild(summBody);
 }
 
 function renderEvents(){
@@ -601,11 +657,138 @@ function renderGoals(){
   });
 }
 
+/* ============ SUMMATIVES (СОР/СОЧ) ============ */
+function makeRow(html){
+  const row = document.createElement('div');
+  row.className = 'item-row';
+  row.innerHTML = html;
+  return row;
+}
+
+function summativeStats(){
+  const withScore = DATA.summatives.filter(s=> s.score!=null && s.score!=='' && s.maxScore);
+  let overall = null;
+  if(withScore.length){
+    const totalPct = withScore.reduce((acc,s)=> acc + (Number(s.score)/Number(s.maxScore))*100, 0);
+    overall = Math.round(totalPct/withScore.length);
+  }
+  const bySubjectMap = {};
+  withScore.forEach(s=>{
+    const subj = s.subject || 'Без предмета';
+    if(!bySubjectMap[subj]) bySubjectMap[subj] = [];
+    bySubjectMap[subj].push((Number(s.score)/Number(s.maxScore))*100);
+  });
+  const bySubject = Object.keys(bySubjectMap).map(subj=>({
+    subject: subj,
+    avg: Math.round(bySubjectMap[subj].reduce((a,b)=>a+b,0)/bySubjectMap[subj].length),
+    count: bySubjectMap[subj].length
+  })).sort((a,b)=> a.avg-b.avg);
+  return {overall, bySubject, total: DATA.summatives.length, withScoreCount: withScore.length};
+}
+
+function summativeRowHtml(item, opts){
+  opts = opts || {};
+  const overdue = isOverdue(item.due, item.done);
+  const hasScore = item.score!=null && item.score!=='' && item.maxScore;
+  const pct = hasScore ? Math.round((Number(item.score)/Number(item.maxScore))*100) : null;
+  const kindLabel = item.kind === 'soch' ? 'СОЧ' : 'СОР';
+  const gradeTagClass = 'tag sor' + (pct!=null && pct<50 ? ' lowgrade' : '');
+  const metaText = opts.hideSubject ? (item.notes ? escapeHtml(item.notes) : '') : escapeHtml(item.subject||'');
+  return `
+    <div class="check ${item.done?'done':''}" onclick="toggleDone('summatives','${item.id}'); ${opts.afterToggle||''}"></div>
+    <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
+      <div class="item-meta">${metaText}</div></div>
+    <span class="${gradeTagClass}">${kindLabel}${hasScore? ' · '+escapeHtml(String(item.score))+'/'+escapeHtml(String(item.maxScore))+' ('+pct+'%)' : ' · без оценки'}</span>
+    <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
+    <div class="row-actions">
+      <button class="icon-btn" onclick="openModal('summatives','${item.id}')">✎</button>
+      <button class="icon-btn del" onclick="deleteItem('summatives','${item.id}'); ${opts.afterDelete||''}">✕</button>
+    </div>`;
+}
+
+let summFilterSubject = 'all';
+function setSummFilter(val){
+  summFilterSubject = val;
+  renderSummatives();
+}
+function renderSummFilterOptions(){
+  const sel = document.getElementById('summ-subject-filter');
+  if(!sel) return;
+  const prev = summFilterSubject;
+  sel.innerHTML = '<option value="all">Все предметы</option>' +
+    subjectGroups().map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+  sel.value = prev;
+  if(sel.value !== prev){ sel.value = 'all'; summFilterSubject = 'all'; }
+}
+
+function renderSummatives(){
+  renderSummFilterOptions();
+
+  const statsWrap = document.getElementById('summ-stats');
+  if(statsWrap){
+    const stats = summativeStats();
+    statsWrap.innerHTML = `
+      <div class="summ-stat-card">
+        <div class="summ-stat-label">Средний балл</div>
+        <div class="summ-stat-value">${stats.overall!=null? stats.overall+'%' : '—'}</div>
+        <div class="summ-stat-sub">${stats.withScoreCount} из ${stats.total} оценено</div>
+      </div>
+      <div class="summ-subject-list">
+        ${stats.bySubject.length ? stats.bySubject.map(s=>`<div class="summ-subject-pill${s.avg<50?' low':''}"><span>${escapeHtml(s.subject)}</span><b>${s.avg}%</b></div>`).join('') : '<div class="empty-note" style="padding:14px 16px">Пока нет оценённых суммативок — добавь балл, когда получишь результат.</div>'}
+      </div>`;
+  }
+
+  const wrap = document.getElementById('list-summatives');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  const filtered = summFilterSubject === 'all' ? DATA.summatives : DATA.summatives.filter(s => (s.subject||'') === summFilterSubject);
+  if(filtered.length===0){
+    wrap.innerHTML = summFilterSubject === 'all'
+      ? '<div class="empty-note">Суммативок пока нет.</div>'
+      : '<div class="empty-note">По этому предмету суммативок нет.</div>';
+    return;
+  }
+  const sorted = [...filtered].sort((a,b)=>{
+    if(a.done !== b.done) return a.done ? 1 : -1;
+    return new Date(a.due||0) - new Date(b.due||0);
+  });
+  sorted.forEach(item=>{
+    wrap.appendChild(makeRow(summativeRowHtml(item)));
+  });
+}
+
+/* ============ NOTES (Заметки) ============ */
+function renderNotes(){
+  const wrap = document.getElementById('list-notes');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  if(DATA.notes.length===0){ wrap.innerHTML = '<div class="empty-note">Заметок пока нет. Запиши мысль, идею или напоминание себе.</div>'; return; }
+  const sorted = [...DATA.notes].sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+  sorted.forEach(item=>{
+    const card = document.createElement('div');
+    card.className = 'goal-card note-card';
+    card.innerHTML = `
+      <div class="goal-top">
+        <div>
+          <div class="goal-title">${escapeHtml(item.title)}</div>
+          ${item.text? `<div class="goal-desc">${escapeHtml(item.text)}</div>`:''}
+        </div>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="openModal('notes','${item.id}')">✎</button>
+          <button class="icon-btn del" onclick="deleteItem('notes','${item.id}')">✕</button>
+        </div>
+      </div>`;
+    wrap.appendChild(card);
+  });
+}
+
 function renderCounts(){
   document.getElementById('cnt-lessons').textContent = DATA.lessons.length;
   document.getElementById('cnt-homework').textContent = DATA.homework.filter(h=>!h.done).length;
+  document.getElementById('cnt-summatives').textContent = DATA.summatives.filter(s=>!s.done).length;
   document.getElementById('cnt-events').textContent = DATA.events.length;
   document.getElementById('cnt-goals').textContent = DATA.goals.filter(g=>(g.progress||0)<100).length;
+  document.getElementById('cnt-notes').textContent = DATA.notes.length;
 }
 
 function renderAll(){
@@ -614,8 +797,10 @@ function renderAll(){
   renderLessons();
   renderSubjects();
   renderHomework();
+  renderSummatives();
   renderEvents();
   renderGoals();
+  renderNotes();
   renderCounts();
   renderCalendar();
 }
@@ -642,8 +827,17 @@ const FIELD_DEFS = {
   homework: [
     {key:'title', label:'Задание', type:'text', required:true},
     {key:'subject', label:'Предмет', type:'text', list:'subjects-datalist'},
-    {key:'kind', label:'Тип', type:'select', options:[{value:'hw',label:'Домашка'},{value:'sor',label:'Суммативка (СОР/СОЧ)'}]},
+    {key:'priority', label:'Приоритет', type:'select', options:[{value:'normal',label:'Обычный'},{value:'high',label:'Высокий'},{value:'low',label:'Низкий'}], default:'normal'},
     {key:'due', label:'Срок сдачи', type:'date'},
+    {key:'notes', label:'Заметки', type:'textarea'}
+  ],
+  summatives: [
+    {key:'subject', label:'Предмет', type:'text', list:'subjects-datalist', required:true},
+    {key:'title', label:'Название', type:'text', required:true},
+    {key:'kind', label:'Тип работы', type:'select', options:[{value:'sor',label:'СОР (за раздел)'},{value:'soch',label:'СОЧ (за четверть)'}], default:'sor'},
+    {key:'due', label:'Дата', type:'date'},
+    {key:'score', label:'Балл (получено)', type:'number'},
+    {key:'maxScore', label:'Балл (максимум)', type:'number', default:100},
     {key:'notes', label:'Заметки', type:'textarea'}
   ],
   events: [
@@ -656,10 +850,14 @@ const FIELD_DEFS = {
     {key:'title', label:'Цель', type:'text', required:true},
     {key:'desc', label:'Описание', type:'textarea'},
     {key:'progress', label:'Прогресс, %', type:'number'}
+  ],
+  notes: [
+    {key:'title', label:'Заголовок', type:'text', required:true},
+    {key:'text', label:'Текст', type:'textarea'}
   ]
 };
 
-const TITLES = {lessons:'урок', homework:'задание', events:'событие', goals:'цель'};
+const TITLES = {lessons:'урок', homework:'задание', summatives:'суммативка', events:'событие', goals:'цель', notes:'заметка'};
 
 function openModal(type, id, prefill){
   editingType = type;
@@ -669,7 +867,10 @@ function openModal(type, id, prefill){
   const box = document.getElementById('modal-box');
   box.innerHTML = `<h3>${existing? 'Изменить' : 'Добавить'} — ${TITLES[type]}</h3>` +
     fields.map(f=>{
-      const val = existing ? (existing[f.key] ?? '') : (prefill && prefill[f.key] !== undefined ? prefill[f.key] : (f.key==='kind' ? 'hw' : ''));
+      let val;
+      if(existing){ val = existing[f.key] ?? ''; }
+      else if(prefill && prefill[f.key] !== undefined){ val = prefill[f.key]; }
+      else { val = f.default !== undefined ? f.default : ''; }
       if(f.type === 'textarea'){
         return `<div class="field"><label>${f.label}</label><textarea data-key="${f.key}">${escapeHtml(val)}</textarea></div>`;
       }
@@ -726,8 +927,9 @@ document.addEventListener('keydown', (e)=>{
 function dayItemsFor(dateObj){
   const ds = dateObj.toDateString();
   const hw = DATA.homework.filter(h=>h.due && new Date(h.due).toDateString()===ds);
+  const summ = DATA.summatives.filter(s=>s.due && new Date(s.due).toDateString()===ds);
   const ev = DATA.events.filter(e=>e.date && new Date(e.date).toDateString()===ds);
-  return {hw, ev};
+  return {hw, summ, ev};
 }
 
 function renderCalendar(){
@@ -769,9 +971,10 @@ function renderCalendar(){
     const cell = document.createElement('div');
     cell.className = 'cal-cell' + (c.other? ' other':'') + (c.dateObj.toDateString()===today.toDateString() ? ' today':'');
     if(selectedDay && c.dateObj.toDateString()===selectedDay.toDateString()) cell.classList.add('selected');
-    const {hw, ev} = dayItemsFor(c.dateObj);
+    const {hw, summ, ev} = dayItemsFor(c.dateObj);
     let dots = '';
     hw.forEach(()=> dots += `<i style="background:var(--tab1)"></i>`);
+    summ.forEach(()=> dots += `<i style="background:var(--brick)"></i>`);
     ev.forEach(()=> dots += `<i style="background:var(--tab4)"></i>`);
     cell.innerHTML = `<div class="cal-daynum">${c.dayNum}</div><div class="cal-dots">${dots}</div>`;
     cell.addEventListener('click', ()=>{ selectedDay = c.dateObj; renderCalendar(); showDayPanel(c.dateObj); });
@@ -783,10 +986,10 @@ function showDayPanel(dateObj){
   const panel = document.getElementById('day-panel');
   panel.style.display = 'block';
   document.getElementById('day-panel-title').textContent = dateObj.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
-  const {hw, ev} = dayItemsFor(dateObj);
+  const {hw, summ, ev} = dayItemsFor(dateObj);
   const listEl = document.getElementById('day-panel-list');
   listEl.innerHTML = '';
-  if(hw.length===0 && ev.length===0){
+  if(hw.length===0 && summ.length===0 && ev.length===0){
     listEl.innerHTML = '<div class="empty-note">На этот день ничего не запланировано.</div>';
     return;
   }
@@ -797,6 +1000,9 @@ function showDayPanel(dateObj){
       <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div><div class="item-meta">${escapeHtml(item.subject||'домашка')}</div></div>
       <span class="tag">домашка</span><span></span>`;
     listEl.appendChild(row);
+  });
+  summ.forEach(item=>{
+    listEl.appendChild(makeRow(summativeRowHtml(item, {afterToggle:'showDayPanel(selectedDay);', afterDelete:'showDayPanel(selectedDay);'})));
   });
   ev.forEach(item=>{
     const row = document.createElement('div');
