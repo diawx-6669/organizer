@@ -8,6 +8,20 @@
 </head>
 <body>
 
+<div class="intro-splash" id="intro-splash" aria-label="Вступительная анимация">
+  <div class="intro-art intro-art-one"></div>
+  <div class="intro-art intro-art-two"></div>
+  <div class="intro-art intro-art-three"></div>
+  <div class="intro-vignette"></div>
+  <div class="intro-stage">
+    <div class="intro-kicker">личное пространство для мыслей</div>
+    <div class="intro-title">Собери свой<br><em>день красиво.</em></div>
+    <div class="intro-rule"></div>
+    <div class="intro-caption">открываю твой органайзер</div>
+  </div>
+  <button class="intro-skip" id="intro-skip">пропустить</button>
+</div>
+
 <div class="app">
   <nav class="tabs" id="tabs">
     <div class="brand">
@@ -26,6 +40,7 @@
     <button class="tab-btn" data-view="notes" style="--dotc:var(--tab7)"><i class="dot"></i><span class="label">Заметки</span><span class="count" id="cnt-notes">0</span></button>
     <button class="tab-btn" data-view="calendar" style="--dotc:var(--tab6)"><i class="dot"></i><span class="label">Календарь</span></button>
     <div class="sync-note"><span class="sync-dotpulse" id="save-indicator"></span><b>Хранится локально.</b> Все данные лежат прямо в этом браузере — никуда не отправляются.</div>
+    <button class="settings-btn" onclick="openSettings()" title="Настройки анимации">настройки сцены <span>↗</span></button>
     <div class="backup-row">
       <button class="backup-btn" onclick="exportBackup()" title="Скачать резервную копию данных">⭳ бэкап</button>
       <label class="backup-btn" title="Загрузить данные из файла бэкапа">
@@ -44,6 +59,30 @@
           <div class="date" id="today-str"></div>
         </div>
         <div class="today-badge" id="today-badge">сегодня</div>
+      </div>
+
+      <div class="dashboard-hero">
+        <div class="hero-copy">
+          <span class="eyebrow">сегодняшняя композиция</span>
+          <h1>День, который<br><em>имеет форму.</em></h1>
+          <p>Собери важное вокруг одного спокойного центра.</p>
+        </div>
+        <div class="hero-object" aria-label="Анимированные часы" role="img">
+          <div class="watch-glow"></div>
+          <div class="watch-stage">
+            <div class="watch-band watch-band-top"></div>
+            <div class="watch-band watch-band-bottom"></div>
+            <div class="watch-case">
+              <div class="watch-bezel">
+                <div class="watch-face">
+                  <span class="watch-marker marker-12"></span><span class="watch-marker marker-3"></span><span class="watch-marker marker-6"></span><span class="watch-marker marker-9"></span>
+                  <span class="watch-hand watch-hand-hour"></span><span class="watch-hand watch-hand-minute"></span><span class="watch-center"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="hero-note"><span>01</span><span>в фокусе</span></div>
       </div>
 
       <div class="quick-actions" aria-label="Быстрые действия">
