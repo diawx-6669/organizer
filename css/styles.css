@@ -1201,3 +1201,186 @@ body::before{
   .view:not(#view-schedule) .item-row:not(:has(.tag.sor)) .row-actions{grid-column:2/-1;justify-content:flex-end}
   #view-calendar .cal-cell{min-height:70px}
 }
+
+/* ---------- animated object inspired by the reference video ---------- */
+#view-dashboard .hero-object{
+  width:280px;
+  height:260px;
+  margin-right:3%;
+  perspective:900px;
+  animation:none;
+}
+#view-dashboard .watch-glow{
+  position:absolute;
+  width:190px;
+  height:190px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(140,226,221,.28),rgba(201,184,255,.12) 42%,transparent 70%);
+  filter:blur(18px);
+  animation:watchGlow 5s ease-in-out infinite;
+}
+#view-dashboard .watch-stage{
+  position:relative;
+  width:180px;
+  height:230px;
+  transform-style:preserve-3d;
+  animation:watchMotion 10s ease-in-out infinite alternate;
+}
+#view-dashboard .watch-band{
+  position:absolute;
+  left:48px;
+  width:84px;
+  height:116px;
+  border:1px solid rgba(239,247,255,.45);
+  background:
+    repeating-linear-gradient(90deg,rgba(82,101,119,.8) 0 7px,rgba(218,229,237,.92) 7px 11px,rgba(91,109,126,.85) 11px 17px),
+    linear-gradient(90deg,#53687b,#f0f5f7 48%,#53687b);
+  box-shadow:inset 0 0 12px rgba(0,0,0,.46),0 8px 12px rgba(0,0,0,.25);
+  transform:translateZ(-8px);
+}
+#view-dashboard .watch-band::after{
+  content:'';
+  position:absolute;
+  inset:10px 15px;
+  border-left:1px solid rgba(255,255,255,.38);
+  border-right:1px solid rgba(0,0,0,.25);
+  opacity:.7;
+}
+#view-dashboard .watch-band-top{
+  top:-18px;
+  border-radius:22px 22px 8px 8px;
+}
+#view-dashboard .watch-band-bottom{
+  bottom:-18px;
+  border-radius:8px 8px 22px 22px;
+}
+#view-dashboard .watch-case{
+  position:absolute;
+  left:4px;
+  top:43px;
+  width:172px;
+  height:148px;
+  border-radius:48%;
+  padding:8px;
+  background:linear-gradient(135deg,#f7fbff 0%,#879bab 24%,#dce7ed 46%,#52697b 72%,#d5e2e8 100%);
+  box-shadow:
+    11px 17px 0 rgba(22,34,48,.42),
+    0 24px 30px rgba(0,0,0,.42),
+    inset 2px 2px 3px rgba(255,255,255,.85),
+    inset -3px -4px 7px rgba(34,49,64,.55);
+  transform:rotateX(7deg) translateZ(8px);
+}
+#view-dashboard .watch-case::before{
+  content:'';
+  position:absolute;
+  right:-9px;
+  top:43px;
+  width:13px;
+  height:29px;
+  border-radius:3px 8px 8px 3px;
+  background:linear-gradient(90deg,#6d8291,#e9f2f6 45%,#778b9a);
+  box-shadow:3px 4px 5px rgba(0,0,0,.25);
+}
+#view-dashboard .watch-bezel{
+  position:relative;
+  width:100%;
+  height:100%;
+  padding:8px;
+  border-radius:48%;
+  background:linear-gradient(145deg,#101c2a,#273a4d 48%,#0b1420);
+  box-shadow:inset 2px 2px 3px rgba(255,255,255,.26),inset -3px -4px 5px rgba(0,0,0,.6);
+}
+#view-dashboard .watch-face{
+  position:relative;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  border-radius:48%;
+  background:
+    radial-gradient(circle at 36% 28%,rgba(181,234,243,.24),transparent 22%),
+    radial-gradient(circle,#1c4258 0%,#0c2336 58%,#07131f 100%);
+  border:1px solid rgba(183,225,236,.42);
+  box-shadow:inset 0 0 18px rgba(0,0,0,.68);
+}
+#view-dashboard .watch-face::before{
+  content:'';
+  position:absolute;
+  inset:10px;
+  border-radius:50%;
+  background:repeating-conic-gradient(from 0deg,rgba(219,244,247,.8) 0 1deg,transparent 1deg 30deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 76%,#000 77% 82%,transparent 83%);
+  mask:radial-gradient(circle,transparent 0 76%,#000 77% 82%,transparent 83%);
+  opacity:.75;
+}
+#view-dashboard .watch-face::after{
+  content:'';
+  position:absolute;
+  width:58%;
+  height:24%;
+  top:-2%;
+  left:-5%;
+  border-radius:50%;
+  background:rgba(255,255,255,.2);
+  filter:blur(8px);
+  transform:rotate(-22deg);
+}
+#view-dashboard .watch-marker{
+  position:absolute;
+  z-index:2;
+  display:block;
+  background:#eaf7f8;
+  box-shadow:0 0 5px rgba(140,226,221,.7);
+}
+#view-dashboard .marker-12,#view-dashboard .marker-6{width:3px;height:12px;left:calc(50% - 1.5px);border-radius:3px}
+#view-dashboard .marker-12{top:10px}
+#view-dashboard .marker-6{bottom:10px}
+#view-dashboard .marker-3,#view-dashboard .marker-9{width:12px;height:3px;top:calc(50% - 1.5px);border-radius:3px}
+#view-dashboard .marker-3{right:10px}
+#view-dashboard .marker-9{left:10px}
+#view-dashboard .watch-hand{
+  position:absolute;
+  z-index:3;
+  left:calc(50% - 2px);
+  bottom:50%;
+  width:4px;
+  border-radius:5px 5px 2px 2px;
+  background:#f5fbf9;
+  box-shadow:0 0 5px rgba(140,226,221,.65);
+  transform-origin:50% 100%;
+}
+#view-dashboard .watch-hand-hour{
+  height:32%;
+  transform:rotate(38deg);
+}
+#view-dashboard .watch-hand-minute{
+  height:42%;
+  width:3px;
+  background:var(--ui-cyan);
+  transform:rotate(300deg);
+  animation:watchMinute 12s linear infinite;
+}
+#view-dashboard .watch-center{
+  position:absolute;
+  z-index:4;
+  left:calc(50% - 5px);
+  top:calc(50% - 5px);
+  width:10px;
+  height:10px;
+  border:2px solid #eaf7f8;
+  border-radius:50%;
+  background:var(--ui-cyan);
+  box-shadow:0 0 8px rgba(140,226,221,.7);
+}
+@keyframes watchMotion{
+  0%{transform:translateY(8px) rotateY(-24deg) rotateZ(-8deg)}
+  45%{transform:translateY(-5px) rotateY(7deg) rotateZ(-3deg)}
+  100%{transform:translateY(4px) rotateY(24deg) rotateZ(-7deg)}
+}
+@keyframes watchGlow{
+  0%,100%{opacity:.55;transform:scale(.9)}
+  50%{opacity:.95;transform:scale(1.12)}
+}
+@keyframes watchMinute{to{transform:rotate(660deg)}}
+@media (max-width:760px){
+  #view-dashboard .hero-object{right:1%;margin-right:0;transform:scale(.86)}
+}
