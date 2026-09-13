@@ -1,6 +1,6 @@
 /* ============ STATE & STORAGE ============ */
 const STORAGE_KEY = 'student-data';
-let DATA = { lessons: [], homework: [], events: [], goals: [], summatives: [], notes: [] };
+let DATA = { lessons: [], homework: [], events: [], goals: [], summatives: [], notes: [], activityLog: [] };
 let editingId = null;
 let editingType = null;
 let calDate = new Date();
@@ -168,7 +168,7 @@ function renderSchedule(){
         tag.addEventListener('click', (e)=>{
           e.stopPropagation();
           if(isSor){ openModal('summatives', item.id); }
-          else { toggleDone('homework', item.id); }
+          else { toggleDone('homework', item.id, e); }
         });
         cell.appendChild(tag);
       });
@@ -261,9 +261,10 @@ async function loadData(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
-      DATA = Object.assign({lessons:[],homework:[],events:[],goals:[],summatives:[],notes:[]}, parsed);
+      DATA = Object.assign({lessons:[],homework:[],events:[],goals:[],summatives:[],notes:[],activityLog:[]}, parsed);
       if(!Array.isArray(DATA.summatives)) DATA.summatives = [];
       if(!Array.isArray(DATA.notes)) DATA.notes = [];
+      if(!Array.isArray(DATA.activityLog)) DATA.activityLog = [];
     }
   }catch(e){
     console.log('Нет сохранённых данных ещё, начинаем с чистого листа', e);
@@ -310,9 +311,10 @@ function importBackup(file){
   reader.onload = () => {
     try{
       const parsed = JSON.parse(reader.result);
-      DATA = Object.assign({lessons:[],homework:[],events:[],goals:[],summatives:[],notes:[]}, parsed);
+      DATA = Object.assign({lessons:[],homework:[],events:[],goals:[],summatives:[],notes:[],activityLog:[]}, parsed);
       if(!Array.isArray(DATA.summatives)) DATA.summatives = [];
       if(!Array.isArray(DATA.notes)) DATA.notes = [];
+      if(!Array.isArray(DATA.activityLog)) DATA.activityLog = [];
       migrateLegacySummatives();
       saveData();
       renderAll();
@@ -350,6 +352,8 @@ function renderDashboard(){
   const now = new Date();
   document.getElementById('today-str').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
   document.getElementById('today-badge').textContent = now.getDate() + ' ' + MONTHS[now.getMonth()];
+  const streakEl = document.getElementById('streak-badge');
+  if(streakEl) streakEl.textContent = '🔥 ' + computeStreak();
 
   document.getElementById('s-lessons').textContent = DATA.lessons.length;
   const hwLeft = DATA.homework.filter(h=>!h.done).length;
@@ -474,7 +478,7 @@ function renderHomework(){
     const row = document.createElement('div');
     row.className = 'item-row';
     row.innerHTML = `
-      <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}')"></div>
+      <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}', event)"></div>
       <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
         <div class="item-meta">${escapeHtml(item.subject||'')}</div></div>
       ${priorityTagHtml(item.priority)}
@@ -571,7 +575,7 @@ function renderSubjects(){
       const row = document.createElement('div');
       row.className = 'item-row';
       row.innerHTML = `
-        <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}'); renderSubjects();"></div>
+        <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}', event); renderSubjects();"></div>
         <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
           ${item.notes? `<div class="item-meta">${escapeHtml(item.notes)}</div>` : ''}</div>
         ${priorityTagHtml(item.priority)}
@@ -695,7 +699,7 @@ function summativeRowHtml(item, opts){
   const gradeTagClass = 'tag sor' + (pct!=null && pct<50 ? ' lowgrade' : '');
   const metaText = opts.hideSubject ? (item.notes ? escapeHtml(item.notes) : '') : escapeHtml(item.subject||'');
   return `
-    <div class="check ${item.done?'done':''}" onclick="toggleDone('summatives','${item.id}'); ${opts.afterToggle||''}"></div>
+    <div class="check ${item.done?'done':''}" onclick="toggleDone('summatives','${item.id}', event); ${opts.afterToggle||''}"></div>
     <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
       <div class="item-meta">${metaText}</div></div>
     <span class="${gradeTagClass}">${kindLabel}${hasScore? ' · '+escapeHtml(String(item.score))+'/'+escapeHtml(String(item.maxScore))+' ('+pct+'%)' : ' · без оценки'}</span>
@@ -806,9 +810,53 @@ function renderAll(){
 }
 
 /* ============ CRUD ============ */
-function toggleDone(type, id){
+function toggleDone(type, id, evt){
   const it = DATA[type].find(x=>x.id===id);
-  if(it){ it.done = !it.done; saveData(); renderAll(); }
+  if(!it) return;
+  it.done = !it.done;
+  if(it.done){
+    logActivity();
+    if(evt && evt.currentTarget) burstConfetti(evt.currentTarget);
+  }
+  saveData();
+  renderAll();
+}
+
+/* ============ STREAK & CELEBRATION ============ */
+function logActivity(){
+  const key = schedDateKey(new Date());
+  if(!DATA.activityLog.includes(key)) DATA.activityLog.push(key);
+}
+
+function computeStreak(){
+  const set = new Set(DATA.activityLog);
+  const cursor = new Date(); cursor.setHours(0,0,0,0);
+  if(!set.has(schedDateKey(cursor))) cursor.setDate(cursor.getDate()-1);
+  let streak = 0;
+  while(set.has(schedDateKey(cursor))){
+    streak++;
+    cursor.setDate(cursor.getDate()-1);
+  }
+  return streak;
+}
+
+const CONFETTI_COLORS = ['var(--gold)','var(--tab4)','var(--tab1)','var(--sage)','var(--tab7)'];
+function burstConfetti(el){
+  if(!el || !el.getBoundingClientRect) return;
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+  for(let i=0;i<10;i++){
+    const p = document.createElement('span');
+    p.className = 'confetti-piece';
+    p.style.left = cx+'px';
+    p.style.top = cy+'px';
+    p.style.setProperty('--dx', (Math.random()*130-65)+'px');
+    p.style.setProperty('--dy', (Math.random()*-100-30)+'px');
+    p.style.setProperty('--rot', (Math.random()*360)+'deg');
+    p.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+    document.body.appendChild(p);
+    p.addEventListener('animationend', ()=>p.remove());
+  }
 }
 
 function deleteItem(type, id){
@@ -996,7 +1044,7 @@ function showDayPanel(dateObj){
   hw.forEach(item=>{
     const row = document.createElement('div');
     row.className = 'item-row';
-    row.innerHTML = `<div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}'); showDayPanel(selectedDay);"></div>
+    row.innerHTML = `<div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}', event); showDayPanel(selectedDay);"></div>
       <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div><div class="item-meta">${escapeHtml(item.subject||'домашка')}</div></div>
       <span class="tag">домашка</span><span></span>`;
     listEl.appendChild(row);
@@ -1060,3 +1108,185 @@ function launchIntro(force=false){
   if(SCENE_SETTINGS.loop){splash.querySelectorAll('.intro-art').forEach(el=>el.style.animationIterationCount='infinite')}
 }
 launchIntro();
+
+/* ============ THEME ============ */
+const THEME_KEY = 'organizer-theme';
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('theme-toggle');
+  if(btn) btn.textContent = theme === 'light' ? '🌙 тёмная тема' : '☀️ светлая тема';
+}
+function toggleTheme(){
+  const cur = localStorage.getItem(THEME_KEY) || 'dark';
+  const next = cur === 'dark' ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+}
+applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+
+/* ============ COMMAND PALETTE ============ */
+const PALETTE_TYPE_META = {
+  lessons:    {icon:'📘', label:'Урок'},
+  homework:   {icon:'✎', label:'Домашка'},
+  summatives: {icon:'◆', label:'Суммативка'},
+  events:     {icon:'◷', label:'Событие'},
+  goals:      {icon:'◎', label:'Цель'},
+  notes:      {icon:'✦', label:'Заметка'}
+};
+let paletteMatches = [];
+let paletteActiveIndex = -1;
+
+function openPalette(){
+  const overlay = document.getElementById('palette-overlay');
+  const input = document.getElementById('palette-input');
+  overlay.classList.add('open');
+  input.value = '';
+  renderPaletteResults('');
+  setTimeout(()=>input.focus(), 30);
+}
+function closePalette(){
+  document.getElementById('palette-overlay').classList.remove('open');
+}
+
+function paletteSearch(query){
+  const q = query.trim().toLowerCase();
+  const results = [];
+  const push = (type, item, title, sub) => results.push({type, id:item.id, title, sub});
+
+  DATA.lessons.forEach(i => push('lessons', i, i.title, [i.teacher, i.schedule].filter(Boolean).join(' · ')));
+  DATA.homework.forEach(i => push('homework', i, i.title, i.subject||''));
+  DATA.summatives.forEach(i => push('summatives', i, i.title, [(i.kind==='soch'?'СОЧ':'СОР'), i.subject].filter(Boolean).join(' · ')));
+  DATA.events.forEach(i => push('events', i, i.title, i.type||''));
+  DATA.goals.forEach(i => push('goals', i, i.title, i.desc||''));
+  DATA.notes.forEach(i => push('notes', i, i.title, i.text||''));
+
+  if(!q) return results.slice(0, 8);
+  return results.filter(r => (r.title+' '+r.sub).toLowerCase().includes(q)).slice(0, 30);
+}
+
+function renderPaletteResults(query){
+  paletteMatches = paletteSearch(query);
+  paletteActiveIndex = paletteMatches.length ? 0 : -1;
+  paintPaletteResults();
+}
+
+function paintPaletteResults(){
+  const wrap = document.getElementById('palette-results');
+  if(paletteMatches.length === 0){
+    wrap.innerHTML = '<div class="palette-empty">Ничего не найдено</div>';
+    return;
+  }
+  wrap.innerHTML = paletteMatches.map((r, idx) => {
+    const meta = PALETTE_TYPE_META[r.type];
+    return `<button class="palette-item${idx===paletteActiveIndex?' active':''}" onclick="paletteOpenResult(${idx})">
+      <span class="palette-item-icon">${meta.icon}</span>
+      <span><span class="palette-item-title">${escapeHtml(r.title||'(без названия)')}</span>
+      <div class="palette-item-sub">${meta.label}${r.sub? ' · '+escapeHtml(r.sub) : ''}</div></span>
+    </button>`;
+  }).join('');
+}
+
+function paletteOpenResult(idx){
+  const r = paletteMatches[idx];
+  if(!r) return;
+  closePalette();
+  const btn = document.querySelector(`.tab-btn[data-view="${r.type}"]`);
+  if(btn) btn.click();
+  setTimeout(()=> openModal(r.type, r.id), 80);
+}
+
+function paletteMove(delta){
+  if(!paletteMatches.length) return;
+  paletteActiveIndex = (paletteActiveIndex + delta + paletteMatches.length) % paletteMatches.length;
+  paintPaletteResults();
+  const activeEl = document.querySelector('.palette-item.active');
+  if(activeEl) activeEl.scrollIntoView({block:'nearest'});
+}
+
+document.addEventListener('keydown', (e) => {
+  if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'){
+    e.preventDefault();
+    const overlay = document.getElementById('palette-overlay');
+    if(overlay.classList.contains('open')) closePalette(); else openPalette();
+  }
+});
+document.getElementById('palette-input').addEventListener('input', (e) => renderPaletteResults(e.target.value));
+document.getElementById('palette-input').addEventListener('keydown', (e) => {
+  if(e.key === 'ArrowDown'){ e.preventDefault(); paletteMove(1); }
+  else if(e.key === 'ArrowUp'){ e.preventDefault(); paletteMove(-1); }
+  else if(e.key === 'Enter'){ e.preventDefault(); if(paletteActiveIndex>=0) paletteOpenResult(paletteActiveIndex); }
+  else if(e.key === 'Escape'){ closePalette(); }
+});
+document.getElementById('palette-overlay').addEventListener('click', (e) => {
+  if(e.target.id === 'palette-overlay') closePalette();
+});
+
+/* ============ POMODORO TIMER ============ */
+const POMODORO_DURATIONS = { focus: 25*60, short: 5*60, long: 15*60 };
+const POMODORO_LABELS = { focus: 'Учёба', short: 'Короткий перерыв', long: 'Длинный перерыв' };
+let pomodoroMode = 'focus';
+let pomodoroRemaining = POMODORO_DURATIONS.focus;
+let pomodoroRunning = false;
+let pomodoroTimer = null;
+
+function pomodoroFormat(sec){
+  const m = Math.floor(sec/60), s = sec%60;
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+function pomodoroRender(){
+  document.getElementById('pomodoro-time').textContent = pomodoroFormat(pomodoroRemaining);
+  document.getElementById('pomodoro-mini').textContent = pomodoroFormat(pomodoroRemaining);
+  document.getElementById('pomodoro-mode').textContent = POMODORO_LABELS[pomodoroMode];
+  document.getElementById('pomodoro-startpause').textContent = pomodoroRunning ? 'Пауза' : 'Старт';
+  document.getElementById('pomodoro').classList.toggle('running', pomodoroRunning);
+}
+function pomodoroTogglePanel(){
+  document.getElementById('pomodoro').classList.toggle('open');
+}
+function pomodoroSetMode(mode){
+  pomodoroMode = mode;
+  pomodoroRemaining = POMODORO_DURATIONS[mode];
+  pomodoroPause();
+  pomodoroRender();
+}
+function pomodoroStartPause(){
+  if(pomodoroRunning) pomodoroPause(); else pomodoroStart();
+}
+function pomodoroStart(){
+  if(pomodoroRunning) return;
+  if('Notification' in window && Notification.permission === 'default'){
+    Notification.requestPermission();
+  }
+  pomodoroRunning = true;
+  pomodoroTimer = setInterval(() => {
+    pomodoroRemaining--;
+    if(pomodoroRemaining <= 0){
+      pomodoroPause();
+      pomodoroRemaining = 0;
+      pomodoroRender();
+      pomodoroNotifyDone();
+      return;
+    }
+    pomodoroRender();
+  }, 1000);
+  pomodoroRender();
+}
+function pomodoroPause(){
+  pomodoroRunning = false;
+  if(pomodoroTimer){ clearInterval(pomodoroTimer); pomodoroTimer = null; }
+  pomodoroRender();
+}
+function pomodoroReset(){
+  pomodoroPause();
+  pomodoroRemaining = POMODORO_DURATIONS[pomodoroMode];
+  pomodoroRender();
+}
+function pomodoroNotifyDone(){
+  burstConfetti(document.querySelector('.pomodoro-toggle'));
+  if('Notification' in window && Notification.permission === 'granted'){
+    new Notification(pomodoroMode === 'focus' ? 'Фокус завершён — время отдохнуть' : 'Перерыв закончился, пора за дело');
+  }
+  pomodoroSetMode(pomodoroMode === 'focus' ? 'short' : 'focus');
+  document.getElementById('pomodoro').classList.add('open');
+}
+pomodoroRender();

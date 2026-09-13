@@ -29,6 +29,7 @@
       <div class="name">Мой органайзер</div>
       <div class="sub">учёба · дела · цели</div>
     </div>
+    <button class="search-trigger" onclick="openPalette()"><span>🔍 Поиск</span><kbd>⌘K</kbd></button>
     <button class="tab-btn active" data-view="dashboard" style="--dotc:var(--tab5)"><i class="dot"></i><span class="label">Обзор</span></button>
     <button class="tab-btn" data-view="schedule" style="--dotc:var(--tab3)"><i class="dot"></i><span class="label">Расписание</span></button>
     <button class="tab-btn" data-view="lessons" style="--dotc:var(--tab3)"><i class="dot"></i><span class="label">Уроки</span><span class="count" id="cnt-lessons">0</span></button>
@@ -40,6 +41,7 @@
     <button class="tab-btn" data-view="notes" style="--dotc:var(--tab7)"><i class="dot"></i><span class="label">Заметки</span><span class="count" id="cnt-notes">0</span></button>
     <button class="tab-btn" data-view="calendar" style="--dotc:var(--tab6)"><i class="dot"></i><span class="label">Календарь</span></button>
     <div class="sync-note"><span class="sync-dotpulse" id="save-indicator"></span><b>Хранится локально.</b> Все данные лежат прямо в этом браузере — никуда не отправляются.</div>
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">☀️ светлая тема</button>
     <button class="settings-btn" onclick="openSettings()" title="Настройки анимации">настройки сцены <span>↗</span></button>
     <div class="backup-row">
       <button class="backup-btn" onclick="exportBackup()" title="Скачать резервную копию данных">⭳ бэкап</button>
@@ -58,7 +60,10 @@
           <div class="greeting" id="greeting">Привет 👋</div>
           <div class="date" id="today-str"></div>
         </div>
-        <div class="today-badge" id="today-badge">сегодня</div>
+        <div class="topline-badges">
+          <div class="streak-badge" id="streak-badge" title="Дней подряд с выполненной задачей">🔥 0</div>
+          <div class="today-badge" id="today-badge">сегодня</div>
+        </div>
       </div>
 
       <div class="dashboard-hero">
@@ -237,6 +242,33 @@
 <!-- MODAL -->
 <div class="overlay" id="overlay">
   <div class="modal" id="modal-box"></div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div class="palette-overlay" id="palette-overlay">
+  <div class="palette">
+    <input class="palette-input" id="palette-input" type="text" placeholder="Найти урок, задание, суммативку, событие, цель или заметку…" autocomplete="off">
+    <div class="palette-results" id="palette-results"></div>
+    <div class="palette-hint"><span>↑↓ навигация</span><span>Enter открыть</span><span>Esc закрыть</span></div>
+  </div>
+</div>
+
+<!-- POMODORO TIMER -->
+<div class="pomodoro" id="pomodoro">
+  <button class="pomodoro-toggle" onclick="pomodoroTogglePanel()" title="Таймер фокуса">⏱ <span id="pomodoro-mini">25:00</span></button>
+  <div class="pomodoro-panel">
+    <div class="pomodoro-mode" id="pomodoro-mode">Учёба</div>
+    <div class="pomodoro-time" id="pomodoro-time">25:00</div>
+    <div class="pomodoro-controls">
+      <button id="pomodoro-startpause" onclick="pomodoroStartPause()">Старт</button>
+      <button onclick="pomodoroReset()">Сброс</button>
+    </div>
+    <div class="pomodoro-modes">
+      <button onclick="pomodoroSetMode('focus')">25 мин</button>
+      <button onclick="pomodoroSetMode('short')">5 мин</button>
+      <button onclick="pomodoroSetMode('long')">15 мин</button>
+    </div>
+  </div>
 </div>
 
 <datalist id="subjects-datalist"></datalist>
