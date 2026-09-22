@@ -389,7 +389,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 .check.done{ background: var(--sage); border-color: var(--sage); }
 .check.done::after{
-  content:'✓'; position:absolute; top:-3px; left:2px; font-size:11px; color:#0b1613;
+  content:''; position:absolute; left:5px; top:1px;
+  width:4px; height:8px;
+  border:solid #0b1613; border-width:0 2px 2px 0;
+  transform: rotate(45deg);
 }
 .item-main .item-title{ font-size:13.5px; color:var(--text); }
 .item-main.done .item-title{ color:var(--text-faint); text-decoration: line-through; }
@@ -411,9 +414,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .row-actions{ display:flex; gap:6px; }
 .icon-btn{
   background:none; border:none; color:var(--text-faint); cursor:pointer;
+  display:inline-flex; align-items:center;
   font-size: 13px; padding: 4px 6px; border-radius:6px;
   transition: color .12s ease, background .12s ease;
 }
+.icon-btn .ui-icon{ width:14px; height:14px; }
 .icon-btn:hover{ color: var(--gold); background: var(--gold-soft); }
 .icon-btn.del:hover{ color: var(--brick); background: var(--brick-soft); }
 
@@ -644,6 +649,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .sched-cell:hover{ background: var(--surface-2); }
 .sched-cell.homeroom{ cursor:default; opacity:.5; }
 .sched-subj{ font-size:12px; font-weight:600; color:var(--text); }
+.sched-room{ font-size:10px; color:var(--text-faint); margin-top:1px; }
 .sched-tag{
   font-size:10.5px;
   color: var(--text-dim);
@@ -1191,14 +1197,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   font-size:13px;
 }
 .palette-item:hover, .palette-item.active{ background: var(--surface-2); }
-.palette-item-icon{
-  width:26px; height:26px; flex-shrink:0;
-  display:grid; place-items:center;
-  border-radius:7px;
-  background: var(--gold-soft);
-  color: var(--gold);
-  font-size:12px;
-}
 .palette-item-title{ font-size:13px; color:var(--text); }
 .palette-item-sub{ font-size:11px; color:var(--text-faint); margin-top:2px; }
 .palette-hint{
@@ -1308,3 +1306,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 :root[data-theme="light"] .brand .mark,
 :root[data-theme="light"] .btn-primary,
 :root[data-theme="light"] .subject-pill.active{ color:#fff; }
+
+/* ============ ICONS ============ */
+.ui-icon{
+  width:16px; height:16px;
+  flex-shrink:0;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.6;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.search-trigger .ui-icon{ width:14px; height:14px; vertical-align:-2px; }
