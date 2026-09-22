@@ -14,30 +14,30 @@
   <div class="intro-art intro-art-three"></div>
   <div class="intro-vignette"></div>
   <div class="intro-stage">
-    <div class="intro-kicker">личное пространство для мыслей</div>
-    <div class="intro-title">Собери свой<br><em>день красиво.</em></div>
+    <div class="intro-kicker">учёба, дела и дедлайны</div>
+    <div class="intro-title">Мой<br><em>органайзер</em></div>
     <div class="intro-rule"></div>
-    <div class="intro-caption">открываю твой органайзер</div>
+    <div class="intro-caption">загружаю</div>
   </div>
   <button class="intro-skip" id="intro-skip">пропустить</button>
 </div>
 
 <div class="mobile-topbar" id="mobile-topbar">
-  <button class="mobile-icon-btn" onclick="openMobileNav()" aria-label="Открыть меню">☰</button>
+  <button class="mobile-icon-btn" onclick="openMobileNav()" aria-label="Открыть меню"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg></button>
   <div class="mobile-topbar-title">Мой органайзер</div>
-  <button class="mobile-icon-btn" onclick="openPalette()" aria-label="Поиск">🔍</button>
+  <button class="mobile-icon-btn" onclick="openPalette()" aria-label="Поиск"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.4 10.4 14 14"/></svg></button>
 </div>
 <div class="nav-scrim" id="nav-scrim" onclick="closeMobileNav()"></div>
 
 <div class="app">
   <nav class="tabs" id="tabs">
-    <button class="mobile-icon-btn nav-close-btn" onclick="closeMobileNav()" aria-label="Закрыть меню">✕</button>
+    <button class="mobile-icon-btn nav-close-btn" onclick="closeMobileNav()" aria-label="Закрыть меню"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
     <div class="brand">
       <div class="mark">Я</div>
       <div class="name">Мой органайзер</div>
       <div class="sub">учёба · дела · цели</div>
     </div>
-    <button class="search-trigger" onclick="openPalette()"><span>🔍 Поиск</span><kbd>⌘K</kbd></button>
+    <button class="search-trigger" onclick="openPalette()"><span><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.4 10.4 14 14"/></svg> Поиск</span><kbd>⌘K</kbd></button>
     <button class="tab-btn active" data-view="dashboard" style="--dotc:var(--tab5)"><i class="dot"></i><span class="label">Обзор</span></button>
     <button class="tab-btn" data-view="schedule" style="--dotc:var(--tab3)"><i class="dot"></i><span class="label">Расписание</span></button>
     <button class="tab-btn" data-view="lessons" style="--dotc:var(--tab3)"><i class="dot"></i><span class="label">Уроки</span><span class="count" id="cnt-lessons">0</span></button>
@@ -48,13 +48,13 @@
     <button class="tab-btn" data-view="goals" style="--dotc:var(--tab2)"><i class="dot"></i><span class="label">Цели</span><span class="count" id="cnt-goals">0</span></button>
     <button class="tab-btn" data-view="notes" style="--dotc:var(--tab7)"><i class="dot"></i><span class="label">Заметки</span><span class="count" id="cnt-notes">0</span></button>
     <button class="tab-btn" data-view="calendar" style="--dotc:var(--tab6)"><i class="dot"></i><span class="label">Календарь</span></button>
-    <div class="sync-note"><span class="sync-dotpulse" id="save-indicator"></span><b>Хранится локально.</b> Все данные лежат прямо в этом браузере — никуда не отправляются.</div>
-    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">☀️ светлая тема</button>
-    <button class="settings-btn" onclick="openSettings()" title="Настройки анимации">настройки сцены <span>↗</span></button>
+    <div class="sync-note"><span class="sync-dotpulse" id="save-indicator"></span><b>Хранится локально.</b> Данные лежат в этом браузере и никуда не уходят.</div>
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">светлая тема</button>
+    <button class="settings-btn" onclick="openSettings()" title="Настройки анимации">настройки заставки <span>&#8594;</span></button>
     <div class="backup-row">
-      <button class="backup-btn" onclick="exportBackup()" title="Скачать резервную копию данных">⭳ бэкап</button>
+      <button class="backup-btn" onclick="exportBackup()" title="Скачать резервную копию данных">скачать копию</button>
       <label class="backup-btn" title="Загрузить данные из файла бэкапа">
-        ⭱ восстановить
+        загрузить копию
         <input type="file" accept="application/json" style="display:none" onchange="if(this.files[0]) importBackup(this.files[0]); this.value='';">
       </label>
     </div>
@@ -65,20 +65,20 @@
     <section class="view active" id="view-dashboard">
       <div class="topline">
         <div>
-          <div class="greeting" id="greeting">Привет 👋</div>
+          <div class="greeting" id="greeting">Привет</div>
           <div class="date" id="today-str"></div>
         </div>
         <div class="topline-badges">
-          <div class="streak-badge" id="streak-badge" title="Дней подряд с выполненной задачей">🔥 0</div>
+          <div class="streak-badge" id="streak-badge" title="Дней подряд с выполненной задачей">0 дн. подряд</div>
           <div class="today-badge" id="today-badge">сегодня</div>
         </div>
       </div>
 
       <div class="dashboard-hero">
         <div class="hero-copy">
-          <span class="eyebrow">сегодняшняя композиция</span>
-          <h1>День, который<br><em>имеет форму.</em></h1>
-          <p>Собери важное вокруг одного спокойного центра.</p>
+          <span class="eyebrow">сегодня</span>
+          <h1>Уроки, дедлайны<br><em>и всё остальное.</em></h1>
+          <p>Всё, что нужно помнить на этой неделе — на одном экране.</p>
         </div>
         <div class="hero-object" aria-label="Анимированные часы" role="img">
           <div class="watch-glow"></div>
@@ -95,15 +95,15 @@
             </div>
           </div>
         </div>
-        <div class="hero-note"><span>01</span><span>в фокусе</span></div>
+        <div class="hero-note"><span>01</span><span>сегодня</span></div>
       </div>
 
       <div class="quick-actions" aria-label="Быстрые действия">
-        <div class="quick-heading"><span>быстрый старт</span><strong>Что добавим в день?</strong></div>
-        <button class="quick-action" onclick="openModal('lessons')"><span class="quick-icon">↗</span><span><b>Урок</b><small>новое занятие</small></span></button>
-        <button class="quick-action" onclick="openModal('homework')"><span class="quick-icon">✦</span><span><b>Домашка</b><small>задача с дедлайном</small></span></button>
-        <button class="quick-action" onclick="openModal('events')"><span class="quick-icon">◷</span><span><b>Событие</b><small>важная дата</small></span></button>
-        <button class="quick-action" onclick="openModal('goals')"><span class="quick-icon">◎</span><span><b>Цель</b><small>движение вперёд</small></span></button>
+        <div class="quick-heading"><span>быстро добавить</span><strong>Что записать?</strong></div>
+        <button class="quick-action" onclick="openModal('lessons')"><span class="quick-icon">+</span><span><b>Урок</b><small>предмет и время</small></span></button>
+        <button class="quick-action" onclick="openModal('homework')"><span class="quick-icon">+</span><span><b>Домашка</b><small>что задали и на когда</small></span></button>
+        <button class="quick-action" onclick="openModal('events')"><span class="quick-icon">+</span><span><b>Событие</b><small>дата и ссылка</small></span></button>
+        <button class="quick-action" onclick="openModal('goals')"><span class="quick-icon">+</span><span><b>Цель</b><small>с прогрессом</small></span></button>
       </div>
 
       <div class="dash-grid">
@@ -137,7 +137,7 @@
     <!-- SCHEDULE -->
     <section class="view" id="view-schedule">
       <div class="section-head">
-        <div><h2>Расписание</h2><p class="section-hint">Твоя учебная неделя — программа сама чередуется по датам. Нажми на урок, чтобы добавить домашку или суммативку.</p></div>
+        <div><h2>Расписание</h2><p class="section-hint">Недели А и Б чередуются сами. Нажми на урок — добавится домашка на этот день.</p></div>
       </div>
       <div class="sched-nav">
         <button class="sched-arrow" onclick="schedShift(-1)">‹</button>
@@ -153,7 +153,7 @@
     <!-- LESSONS -->
     <section class="view" id="view-lessons">
       <div class="section-head">
-        <div><h2>Уроки</h2><p class="section-hint">Расписание занятий и важные темы на неделю.</p></div>
+        <div><h2>Уроки</h2><p class="section-hint">Список предметов: кто ведёт, где и когда.</p></div>
         <button class="add-btn" onclick="openModal('lessons')">+ добавить урок</button>
       </div>
       <div class="ledger" id="list-lessons"></div>
@@ -162,7 +162,7 @@
     <!-- SUBJECTS -->
     <section class="view" id="view-subjects">
       <div class="section-head">
-        <div><h2>Предметы</h2><p class="section-hint">Выбери предмет наверху — там суммативки и домашка по нему. Добавляй что угодно вручную.</p></div>
+        <div><h2>Предметы</h2><p class="section-hint">Выбери предмет — увидишь всю домашку и суммативки по нему.</p></div>
       </div>
       <div class="subject-panel" id="subject-panel"></div>
       <div class="subject-detail" id="subject-detail"></div>
@@ -171,7 +171,7 @@
     <!-- HOMEWORK -->
     <section class="view" id="view-homework">
       <div class="section-head">
-        <div><h2>Домашка</h2><p class="section-hint">Держи дедлайны под контролем и закрывай задачи по одной.</p></div>
+        <div><h2>Домашка</h2><p class="section-hint">Что задали и на какое число.</p></div>
         <button class="add-btn" onclick="openModal('homework')">+ добавить задание</button>
       </div>
       <div class="hw-filter-row">
@@ -184,7 +184,7 @@
     <!-- SUMMATIVES -->
     <section class="view" id="view-summatives">
       <div class="section-head">
-        <div><h2>Суммативки</h2><p class="section-hint">СОР и СОЧ отдельно от обычной домашки — с баллами и средним процентом по предметам.</p></div>
+        <div><h2>Суммативки</h2><p class="section-hint">СОР и СОЧ отдельно от домашки: даты, баллы и средний процент.</p></div>
         <button class="add-btn" onclick="openModal('summatives')">+ добавить суммативку</button>
       </div>
       <div class="summ-stats" id="summ-stats"></div>
@@ -198,7 +198,7 @@
     <!-- EVENTS -->
     <section class="view" id="view-events">
       <div class="section-head">
-        <div><h2>Мероприятия и хакатоны</h2><p class="section-hint">Возможности, встречи и даты, которые нельзя пропустить.</p></div>
+        <div><h2>Мероприятия и хакатоны</h2><p class="section-hint">Хакатоны, олимпиады, встречи — чтобы не пропустить дату.</p></div>
         <button class="add-btn" onclick="openModal('events')">+ добавить событие</button>
       </div>
       <div class="ledger" id="list-events"></div>
@@ -207,7 +207,7 @@
     <!-- GOALS -->
     <section class="view" id="view-goals">
       <div class="section-head">
-        <div><h2>Цели на будущее</h2><p class="section-hint">Большие намерения превращаются в маленькие шаги.</p></div>
+        <div><h2>Цели на будущее</h2><p class="section-hint">К чему идёшь и на сколько процентов уже дошёл.</p></div>
         <button class="add-btn" onclick="openModal('goals')">+ добавить цель</button>
       </div>
       <div id="list-goals"></div>
@@ -216,7 +216,7 @@
     <!-- NOTES -->
     <section class="view" id="view-notes">
       <div class="section-head">
-        <div><h2>Заметки</h2><p class="section-hint">Мысли, идеи и короткие напоминания, которые не привязаны к дедлайну.</p></div>
+        <div><h2>Заметки</h2><p class="section-hint">Всё, что нужно записать и не потерять.</p></div>
         <button class="add-btn" onclick="openModal('notes')">+ добавить заметку</button>
       </div>
       <div id="list-notes"></div>
@@ -225,7 +225,7 @@
     <!-- CALENDAR -->
     <section class="view" id="view-calendar">
       <div class="section-head">
-        <div><h2>Календарь</h2><p class="section-hint">Выбери день, чтобы увидеть всё запланированное.</p></div>
+        <div><h2>Календарь</h2><p class="section-hint">Нажми на день — покажу, что на него назначено.</p></div>
       </div>
       <div class="cal-head">
         <div class="cal-month-label" id="cal-month-label"></div>
@@ -255,7 +255,7 @@
 <!-- COMMAND PALETTE -->
 <div class="palette-overlay" id="palette-overlay">
   <div class="palette">
-    <input class="palette-input" id="palette-input" type="text" placeholder="Найти урок, задание, суммативку, событие, цель или заметку…" autocomplete="off">
+    <input class="palette-input" id="palette-input" type="text" placeholder="Найти урок, задание, суммативку, событие, цель или заметку" autocomplete="off">
     <div class="palette-results" id="palette-results"></div>
     <div class="palette-hint"><span>↑↓ навигация</span><span>Enter открыть</span><span>Esc закрыть</span></div>
   </div>
@@ -263,7 +263,7 @@
 
 <!-- POMODORO TIMER -->
 <div class="pomodoro" id="pomodoro">
-  <button class="pomodoro-toggle" onclick="pomodoroTogglePanel()" title="Таймер фокуса">⏱ <span id="pomodoro-mini">25:00</span></button>
+  <button class="pomodoro-toggle" onclick="pomodoroTogglePanel()" title="Таймер фокуса"><span id="pomodoro-mini">25:00</span></button>
   <div class="pomodoro-panel">
     <div class="pomodoro-mode" id="pomodoro-mode">Учёба</div>
     <div class="pomodoro-time" id="pomodoro-time">25:00</div>

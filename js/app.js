@@ -19,14 +19,14 @@ const SUBJECTS = [
 let openSubjects = new Set();
 
 /* ============ SCHEDULE (расписание) ============ */
-const SCHED_TIMES = ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00"];
+const SCHED_TIMES = ["08:00","09:00","10:00","11:00","12:00","13:00","14:00"];
 const SCHED_DAY_KEYS = ["Пн","Вт","Ср","Чт","Пт"];
 
 const SCHED_RUS = {
   "Mathematics":"Математика",
   "Physical and Health Education":"Физкультура",
   "Arts":"ИЗО",
-  "Homeroom":"Хоумрум",
+  "Homeroom":"Шаңырақ",
   "English Language Acquisition":"Английский язык",
   "Kazakh Language and Literature":"Казахский язык и литература",
   "Information and communication technology":"ИКТ",
@@ -58,21 +58,29 @@ const SCHED_COLORS = {
   "Geography":"#d97a72"
 };
 
+// кабинеты — как в школьном расписании; у остальных предметов кабинет не указан
+const SCHED_ROOMS = {
+  "Chemistry":"233",
+  "Physics":"133",
+  "Information and communication technology":"143",
+  "Physical and Health Education":"Gym"
+};
+
 // SCHED_DATA[pattern][dayKey] = subject per SCHED_TIMES slot, in order
 const SCHED_DATA = {
   A: {
-    "Пн": ["Mathematics","Physical and Health Education","Arts","Homeroom","English Language Acquisition","Kazakh Language and Literature","Information and communication technology","Homeroom"],
-    "Вт": ["Chemistry","Physics","Mathematics","Homeroom","Kazakh Language and Literature","English Language Acquisition","World History","Homeroom"],
-    "Ср": ["Arts","Mathematics","Economics","Homeroom","Kazakh History","Russian Language Acquisition","Biology","Homeroom"],
-    "Чт": ["Geography","Information and communication technology","Chemistry","Homeroom","Physical and Health Education","Mathematics","Physics","Homeroom"],
-    "Пт": ["Russian Language Acquisition","Kazakh Language and Literature","English Language Acquisition","Homeroom","Kazakh History","Biology","Economics","Homeroom"]
+    "Пн": ["Mathematics","Physical and Health Education","Arts","Homeroom","English Language Acquisition","Kazakh Language and Literature","Information and communication technology"],
+    "Вт": ["Chemistry","Physics","Mathematics","Homeroom","Kazakh Language and Literature","English Language Acquisition","World History"],
+    "Ср": ["Arts","Mathematics","Economics","Homeroom","Kazakh History","Russian Language Acquisition","Biology"],
+    "Чт": ["Geography","Information and communication technology","Chemistry","Homeroom","Physical and Health Education","Mathematics","Physics"],
+    "Пт": ["Russian Language Acquisition","Kazakh Language and Literature","English Language Acquisition","Homeroom","Kazakh History","Biology","Economics"]
   },
   B: {
-    "Пн": ["Mathematics","Physical and Health Education","Arts","Homeroom","English Language Acquisition","Kazakh Language and Literature","Information and communication technology","Homeroom"],
-    "Вт": ["Chemistry","Physics","Mathematics","Homeroom","Kazakh Language and Literature","English Language Acquisition","World History","Homeroom"],
-    "Ср": ["Arts","Mathematics","Geography","Homeroom","Kazakh History","Russian Language Acquisition","Biology","Homeroom"],
-    "Чт": ["Geography","Information and communication technology","Chemistry","Homeroom","Physical and Health Education","Mathematics","Physics","Homeroom"],
-    "Пт": ["Russian Language Acquisition","Kazakh Language and Literature","English Language Acquisition","Homeroom","Kazakh History","Biology","Economics","Homeroom"]
+    "Пн": ["Mathematics","Physical and Health Education","Arts","Homeroom","English Language Acquisition","Kazakh Language and Literature","Information and communication technology"],
+    "Вт": ["Chemistry","Physics","Mathematics","Homeroom","Kazakh Language and Literature","English Language Acquisition","World History"],
+    "Ср": ["Arts","Mathematics","Geography","Homeroom","Kazakh History","Russian Language Acquisition","Biology"],
+    "Чт": ["Geography","Information and communication technology","Chemistry","Homeroom","Physical and Health Education","Mathematics","Physics"],
+    "Пт": ["Russian Language Acquisition","Kazakh Language and Literature","English Language Acquisition","Homeroom","Kazakh History","Biology","Economics"]
   }
 };
 
@@ -159,12 +167,20 @@ function renderSchedule(){
       subjEl.textContent = rus;
       cell.appendChild(subjEl);
 
+      const room = SCHED_ROOMS[subj];
+      if(room){
+        const roomEl = document.createElement('div');
+        roomEl.className = 'sched-room';
+        roomEl.textContent = room;
+        cell.appendChild(roomEl);
+      }
+
       [...sor, ...hw].forEach(item=>{
         const isSor = sor.includes(item);
         const tag = document.createElement('div');
         tag.className = 'sched-tag' + (isSor?' sor':'') + (item.done?' done':'');
-        tag.textContent = (isSor ? '◆ ' : (item.done ? '✓ ' : '• ')) + item.title;
-        tag.title = isSor ? 'Нажми, чтобы изменить суммативку' : 'Нажми, чтобы отметить сделанным';
+        tag.textContent = (isSor ? 'СОР · ' : '') + item.title;
+        tag.title = isSor ? 'Открыть суммативку' : 'Отметить сделанным';
         tag.addEventListener('click', (e)=>{
           e.stopPropagation();
           if(isSor){ openModal('summatives', item.id); }
@@ -192,51 +208,101 @@ function hexToRgba(hex, alpha){
 
 const DOWS_FULL = {"Пн":"Понедельник","Вт":"Вторник","Ср":"Среда","Чт":"Четверг","Пт":"Пятница"};
 
-/* seed the summative assessments we already know about, once */
-function seedKnownSummatives(){
-  if(!localStorage.getItem('seeded-sor-v1')){
-    const seeds = [
-      {subject:'Математика', due:'2026-09-15', title:'Суммативная работа'},
-      {subject:'ИЗО', due:'2026-09-16', title:'Суммативная работа'},
-      {subject:'ИКТ', due:'2026-09-17', title:'Суммативная работа'},
-      {subject:'Физкультура', due:'2026-09-24', title:'Суммативная работа'},
-      {subject:'География', due:'2026-09-24', title:'Суммативная работа'},
-      {subject:'Казахский язык и литература', due:'2026-09-25', title:'Суммативная работа'},
-      {subject:'История Казахстана', due:'2026-09-25', title:'Суммативная работа'}
-    ];
-    seeds.forEach(s=>{
-      DATA.summatives.push({id:uid(), done:false, createdAt:Date.now(), kind:'sor', score:null, maxScore:100, notes:'', ...s});
-    });
-    localStorage.setItem('seeded-sor-v1','1');
-    saveData();
-  }
+/* Суммативки, которые уже стоят в школьном расписании.
+   Список сверяется со школьным приложением: при новой версии записи,
+   которых там больше нет, убираются, а недостающие добавляются.
+   Всё, что ты уже отметил, оценил или подписал, остаётся нетронутым. */
+const OFFICIAL_SUMMATIVES = [
+  ['Математика',                  '2026-09-15'],
+  ['ИЗО',                         '2026-09-16'],
+  ['ИКТ',                         '2026-09-17'],
 
-  if(!localStorage.getItem('seeded-sor-v2')){
-    const seeds2 = [
-      {subject:'Химия', due:'2026-09-29', title:'Суммативная работа'},
-      {subject:'Физкультура', due:'2026-10-01', title:'Суммативная работа'},
-      {subject:'Экономика', due:'2026-10-02', title:'Суммативная работа'},
-      {subject:'Математика', due:'2026-10-07', title:'Суммативная работа'},
-      {subject:'ИЗО', due:'2026-10-07', title:'Суммативная работа'},
-      {subject:'Русский язык', due:'2026-10-07', title:'Суммативная работа'},
-      {subject:'Физкультура', due:'2026-10-08', title:'Суммативная работа'},
-      {subject:'Физика', due:'2026-10-08', title:'Суммативная работа'},
-      {subject:'Казахский язык и литература', due:'2026-10-12', title:'Суммативная работа'},
-      {subject:'Математика', due:'2026-10-13', title:'Суммативная работа'},
-      {subject:'Химия', due:'2026-10-13', title:'Суммативная работа'},
-      {subject:'Физика', due:'2026-10-15', title:'Суммативная работа'},
-      {subject:'ИКТ', due:'2026-10-15', title:'Суммативная работа'},
-      {subject:'ИЗО', due:'2026-10-19', title:'Суммативная работа'},
-      {subject:'ИЗО', due:'2026-10-21', title:'Суммативная работа'},
-      {subject:'ИКТ', due:'2026-10-22', title:'Суммативная работа'},
-      {subject:'География', due:'2026-10-22', title:'Суммативная работа'}
-    ];
-    seeds2.forEach(s=>{
-      DATA.summatives.push({id:uid(), done:false, createdAt:Date.now(), kind:'sor', score:null, maxScore:100, notes:'', ...s});
+  ['Физкультура',                 '2026-09-24'],
+  ['География',                   '2026-09-24'],
+  ['Казахский язык и литература', '2026-09-25'],
+  ['История Казахстана',          '2026-09-25'],
+  ['Английский язык',             '2026-09-25'],
+
+  ['Химия',                       '2026-09-29'],
+  ['Физкультура',                 '2026-10-01'],
+
+  ['Математика',                  '2026-10-07'],
+  ['ИЗО',                         '2026-10-07'],
+  ['Русский язык',                '2026-10-07'],
+  ['Физкультура',                 '2026-10-08'],
+  ['Физика',                      '2026-10-08'],
+  ['Экономика',                   '2026-10-09'],
+  ['Биология',                    '2026-10-09'],
+
+  ['Казахский язык и литература', '2026-10-12'],
+  ['Математика',                  '2026-10-13'],
+  ['Химия',                       '2026-10-13'],
+  ['Всемирная история',           '2026-10-13'],
+  ['Физика',                      '2026-10-15'],
+  ['ИКТ',                         '2026-10-15'],
+
+  ['ИЗО',                         '2026-10-19'],
+  ['Английский язык',             '2026-10-20'],
+  ['ИЗО',                         '2026-10-21'],
+  ['ИКТ',                         '2026-10-22'],
+  ['География',                   '2026-10-22'],
+  ['Биология',                    '2026-10-23']
+];
+
+/* то, что добавляли прошлые версии списка — только эти записи можно убирать
+   при сверке, чтобы не задеть добавленные вручную */
+const PREVIOUS_AUTO_SUMMATIVES = [
+  ['Математика','2026-09-15'], ['ИЗО','2026-09-16'], ['ИКТ','2026-09-17'],
+  ['Физкультура','2026-09-24'], ['География','2026-09-24'],
+  ['Казахский язык и литература','2026-09-25'], ['История Казахстана','2026-09-25'],
+  ['Химия','2026-09-29'], ['Физкультура','2026-10-01'], ['Экономика','2026-10-02'],
+  ['Математика','2026-10-07'], ['ИЗО','2026-10-07'], ['Русский язык','2026-10-07'],
+  ['Физкультура','2026-10-08'], ['Физика','2026-10-08'],
+  ['Казахский язык и литература','2026-10-12'], ['Математика','2026-10-13'],
+  ['Химия','2026-10-13'], ['Физика','2026-10-15'], ['ИКТ','2026-10-15'],
+  ['ИЗО','2026-10-19'], ['ИЗО','2026-10-21'], ['ИКТ','2026-10-22'], ['География','2026-10-22']
+];
+
+const SUMM_SYNC_KEY = 'summatives-synced-version';
+const SUMM_SYNC_VERSION = 3;
+
+function summKey(subject, due){ return (subject||'') + '|' + (due||''); }
+function summTouched(item){
+  return item.done
+    || (item.score !== null && item.score !== undefined && item.score !== '')
+    || String(item.notes||'').trim() !== ''
+    || item.title !== 'Суммативная работа';
+}
+
+function syncOfficialSummatives(){
+  if(Number(localStorage.getItem(SUMM_SYNC_KEY)||0) >= SUMM_SYNC_VERSION) return;
+
+  const official = new Set(OFFICIAL_SUMMATIVES.map(([subj,due]) => summKey(subj,due)));
+  const wasAuto  = new Set(PREVIOUS_AUTO_SUMMATIVES.map(([subj,due]) => summKey(subj,due)));
+
+  // убираем то, что раньше добавилось автоматически, а в расписании больше не стоит
+  DATA.summatives = DATA.summatives.filter(item=>{
+    const key = summKey(item.subject, item.due);
+    if(official.has(key)) return true;
+    const auto = item.source === 'schedule' || wasAuto.has(key);
+    return !auto || summTouched(item);
+  });
+
+  const present = new Set(DATA.summatives.map(item => summKey(item.subject, item.due)));
+  OFFICIAL_SUMMATIVES.forEach(([subject, due])=>{
+    if(present.has(summKey(subject, due))) return;
+    present.add(summKey(subject, due));
+    DATA.summatives.push({
+      id: uid(), subject, due, title: 'Суммативная работа', kind: 'sor',
+      score: null, maxScore: 100, notes: '', done: false,
+      source: 'schedule', createdAt: Date.now()
     });
-    localStorage.setItem('seeded-sor-v2','1');
-    saveData();
-  }
+  });
+
+  localStorage.setItem(SUMM_SYNC_KEY, String(SUMM_SYNC_VERSION));
+  localStorage.removeItem('seeded-sor-v1');
+  localStorage.removeItem('seeded-sor-v2');
+  saveData();
 }
 
 /* move any legacy homework items (old 'kind: sor' scheme) into the dedicated summatives list, once */
@@ -267,10 +333,10 @@ async function loadData(){
       if(!Array.isArray(DATA.activityLog)) DATA.activityLog = [];
     }
   }catch(e){
-    console.log('Нет сохранённых данных ещё, начинаем с чистого листа', e);
+    console.log('Сохранённых данных нет, начинаем с пустого', e);
   }
   migrateLegacySummatives();
-  seedKnownSummatives();
+  syncOfficialSummatives();
   renderAll();
   updateSubjectsDatalist();
 }
@@ -320,7 +386,7 @@ function importBackup(file){
       renderAll();
       if(document.querySelector('.tab-btn[data-view="calendar"]').classList.contains('active')) renderCalendar();
     }catch(e){
-      alert('Не получилось прочитать файл бэкапа: ' + e.message);
+      alert('Не получилось прочитать файл копии: ' + e.message);
     }
   };
   reader.readAsText(file);
@@ -359,12 +425,12 @@ function greetTime(){
 }
 
 function renderDashboard(){
-  document.getElementById('greeting').textContent = greetTime() + ' 👋';
+  document.getElementById('greeting').textContent = greetTime();
   const now = new Date();
   document.getElementById('today-str').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
   document.getElementById('today-badge').textContent = now.getDate() + ' ' + MONTHS[now.getMonth()];
   const streakEl = document.getElementById('streak-badge');
-  if(streakEl) streakEl.textContent = '🔥 ' + computeStreak();
+  if(streakEl) streakEl.textContent = computeStreak() + ' дн. подряд';
 
   document.getElementById('s-lessons').textContent = DATA.lessons.length;
   const hwLeft = DATA.homework.filter(h=>!h.done).length;
@@ -390,7 +456,7 @@ function renderDashboard(){
   const list = document.getElementById('upcoming-list');
   list.innerHTML = '';
   if(items.length === 0){
-    list.innerHTML = '<div class="empty-note">Пока ничего не запланировано — самое время добавить дела.</div>';
+    list.innerHTML = '<div class="empty-note">На ближайшие дни ничего не назначено.</div>';
   } else {
     items.forEach(i=>{
       const d = new Date(i.date);
@@ -452,7 +518,7 @@ function isOverdue(dateStr, done){
 function renderLessons(){
   const wrap = document.getElementById('list-lessons');
   wrap.innerHTML = '';
-  if(DATA.lessons.length===0){ wrap.innerHTML = '<div class="empty-note">Список уроков пуст. Добавь предметы, которые проходишь.</div>'; return; }
+  if(DATA.lessons.length===0){ wrap.innerHTML = '<div class="empty-note">Уроков пока нет.</div>'; return; }
   DATA.lessons.forEach(item=>{
     const row = document.createElement('div');
     row.className = 'item-row';
@@ -462,8 +528,8 @@ function renderLessons(){
         <div class="item-meta">${escapeHtml(item.teacher||'')}${item.schedule? ' · '+escapeHtml(item.schedule):''}</div></div>
       <span class="tag">${escapeHtml(item.room||'')}</span>
       <div class="row-actions">
-        <button class="icon-btn" onclick="openModal('lessons','${item.id}')">✎</button>
-        <button class="icon-btn del" onclick="deleteItem('lessons','${item.id}')">✕</button>
+        <button class="icon-btn" aria-label="Изменить" onclick="openModal('lessons','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
+        <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('lessons','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
       </div>`;
     wrap.appendChild(row);
   });
@@ -476,8 +542,8 @@ function renderHomework(){
   const filtered = hwFilterSubject === 'all' ? DATA.homework : DATA.homework.filter(h => (h.subject||'') === hwFilterSubject);
   if(filtered.length===0){
     wrap.innerHTML = hwFilterSubject === 'all'
-      ? '<div class="empty-note">Домашки нет. Хорошее начало дня.</div>'
-      : '<div class="empty-note">По этому предмету пока ничего не записано.</div>';
+      ? '<div class="empty-note">Домашки нет.</div>'
+      : '<div class="empty-note">По этому предмету ничего не записано.</div>';
     return;
   }
   const sorted = [...filtered].sort((a,b)=>{
@@ -495,8 +561,8 @@ function renderHomework(){
       ${priorityTagHtml(item.priority)}
       <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
       <div class="row-actions">
-        <button class="icon-btn" onclick="openModal('homework','${item.id}')">✎</button>
-        <button class="icon-btn del" onclick="deleteItem('homework','${item.id}')">✕</button>
+        <button class="icon-btn" aria-label="Изменить" onclick="openModal('homework','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
+        <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('homework','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
       </div>`;
     wrap.appendChild(row);
   });
@@ -579,7 +645,7 @@ function renderSubjects(){
   const body = document.createElement('div');
   body.className = 'ledger';
   if(items.length === 0){
-    body.innerHTML = '<div class="empty-note">Пока ничего не записано по этому предмету.</div>';
+    body.innerHTML = '<div class="empty-note">Домашки по этому предмету нет.</div>';
   } else {
     items.forEach(item=>{
       const overdue = isOverdue(item.due, item.done);
@@ -592,8 +658,8 @@ function renderSubjects(){
         ${priorityTagHtml(item.priority)}
         <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
         <div class="row-actions">
-          <button class="icon-btn" onclick="openModal('homework','${item.id}')">✎</button>
-          <button class="icon-btn del" onclick="deleteItem('homework','${item.id}'); renderSubjects();">✕</button>
+          <button class="icon-btn" aria-label="Изменить" onclick="openModal('homework','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
+          <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('homework','${item.id}'); renderSubjects();"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
         </div>`;
       body.appendChild(row);
     });
@@ -617,7 +683,7 @@ function renderSubjects(){
   const summBody = document.createElement('div');
   summBody.className = 'ledger';
   if(summItems.length === 0){
-    summBody.innerHTML = '<div class="empty-note">Суммативок по этому предмету пока нет.</div>';
+    summBody.innerHTML = '<div class="empty-note">Суммативок по этому предмету нет.</div>';
   } else {
     summItems.forEach(item=>{
       summBody.appendChild(makeRow(summativeRowHtml(item, {hideSubject:true, afterToggle:'renderSubjects();', afterDelete:'renderSubjects();'})));
@@ -629,7 +695,7 @@ function renderSubjects(){
 function renderEvents(){
   const wrap = document.getElementById('list-events');
   wrap.innerHTML = '';
-  if(DATA.events.length===0){ wrap.innerHTML = '<div class="empty-note">Мероприятий и хакатонов пока нет в списке.</div>'; return; }
+  if(DATA.events.length===0){ wrap.innerHTML = '<div class="empty-note">Мероприятий пока нет.</div>'; return; }
   const sorted = [...DATA.events].sort((a,b)=> new Date(a.date||0) - new Date(b.date||0));
   sorted.forEach(item=>{
     const row = document.createElement('div');
@@ -640,8 +706,8 @@ function renderEvents(){
         <div class="item-meta">${escapeHtml(item.type||'')}${item.link? ' · ссылка сохранена':''}</div></div>
       <span class="tag">${item.date? fmtDate(item.date): '—'}</span>
       <div class="row-actions">
-        <button class="icon-btn" onclick="openModal('events','${item.id}')">✎</button>
-        <button class="icon-btn del" onclick="deleteItem('events','${item.id}')">✕</button>
+        <button class="icon-btn" aria-label="Изменить" onclick="openModal('events','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
+        <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('events','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
       </div>`;
     wrap.appendChild(row);
   });
@@ -650,7 +716,7 @@ function renderEvents(){
 function renderGoals(){
   const wrap = document.getElementById('list-goals');
   wrap.innerHTML = '';
-  if(DATA.goals.length===0){ wrap.innerHTML = '<div class="empty-note">Целей ещё нет. Запиши то, к чему идёшь.</div>'; return; }
+  if(DATA.goals.length===0){ wrap.innerHTML = '<div class="empty-note">Целей пока нет.</div>'; return; }
   DATA.goals.forEach(item=>{
     const pct = Math.max(0, Math.min(100, item.progress||0));
     const card = document.createElement('div');
@@ -662,8 +728,8 @@ function renderGoals(){
           ${item.desc? `<div class="goal-desc">${escapeHtml(item.desc)}</div>`:''}
         </div>
         <div class="row-actions">
-          <button class="icon-btn" onclick="openModal('goals','${item.id}')">✎</button>
-          <button class="icon-btn del" onclick="deleteItem('goals','${item.id}')">✕</button>
+          <button class="icon-btn" aria-label="Изменить" onclick="openModal('goals','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
+          <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('goals','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
         </div>
       </div>
       <div class="goal-bar-track"><div class="goal-bar-fill" style="width:${pct}%"></div></div>
@@ -716,8 +782,8 @@ function summativeRowHtml(item, opts){
     <span class="${gradeTagClass}">${kindLabel}${hasScore? ' · '+escapeHtml(String(item.score))+'/'+escapeHtml(String(item.maxScore))+' ('+pct+'%)' : ' · без оценки'}</span>
     <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
     <div class="row-actions">
-      <button class="icon-btn" onclick="openModal('summatives','${item.id}')">✎</button>
-      <button class="icon-btn del" onclick="deleteItem('summatives','${item.id}'); ${opts.afterDelete||''}">✕</button>
+      <button class="icon-btn" aria-label="Изменить" onclick="openModal('summatives','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
+      <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('summatives','${item.id}'); ${opts.afterDelete||''}"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
     </div>`;
 }
 
@@ -749,7 +815,7 @@ function renderSummatives(){
         <div class="summ-stat-sub">${stats.withScoreCount} из ${stats.total} оценено</div>
       </div>
       <div class="summ-subject-list">
-        ${stats.bySubject.length ? stats.bySubject.map(s=>`<div class="summ-subject-pill${s.avg<50?' low':''}"><span>${escapeHtml(s.subject)}</span><b>${s.avg}%</b></div>`).join('') : '<div class="empty-note" style="padding:14px 16px">Пока нет оценённых суммативок — добавь балл, когда получишь результат.</div>'}
+        ${stats.bySubject.length ? stats.bySubject.map(s=>`<div class="summ-subject-pill${s.avg<50?' low':''}"><span>${escapeHtml(s.subject)}</span><b>${s.avg}%</b></div>`).join('') : '<div class="empty-note" style="padding:14px 16px">Баллов пока нет. Впиши их, когда получишь результат.</div>'}
       </div>`;
   }
 
@@ -777,7 +843,7 @@ function renderNotes(){
   const wrap = document.getElementById('list-notes');
   if(!wrap) return;
   wrap.innerHTML = '';
-  if(DATA.notes.length===0){ wrap.innerHTML = '<div class="empty-note">Заметок пока нет. Запиши мысль, идею или напоминание себе.</div>'; return; }
+  if(DATA.notes.length===0){ wrap.innerHTML = '<div class="empty-note">Заметок пока нет.</div>'; return; }
   const sorted = [...DATA.notes].sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
   sorted.forEach(item=>{
     const card = document.createElement('div');
@@ -789,8 +855,8 @@ function renderNotes(){
           ${item.text? `<div class="goal-desc">${escapeHtml(item.text)}</div>`:''}
         </div>
         <div class="row-actions">
-          <button class="icon-btn" onclick="openModal('notes','${item.id}')">✎</button>
-          <button class="icon-btn del" onclick="deleteItem('notes','${item.id}')">✕</button>
+          <button class="icon-btn" aria-label="Изменить" onclick="openModal('notes','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
+          <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('notes','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
         </div>
       </div>`;
     wrap.appendChild(card);
@@ -1097,10 +1163,10 @@ let SCENE_SETTINGS = Object.assign({enabled:true, loop:true, duration:16}, JSON.
 function saveSceneSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(SCENE_SETTINGS)); }
 function openSettings(){
   const box = document.getElementById('modal-box');
-  box.innerHTML = `<h3>Настройки сцены</h3>
-    <div class="settings-card"><label><input id="scene-enabled" type="checkbox" ${SCENE_SETTINGS.enabled?'checked':''}> Показывать сцену при входе</label></div>
-    <div class="settings-card"><label><input id="scene-loop" type="checkbox" ${SCENE_SETTINGS.loop?'checked':''}> Повторять анимацию бесконечно</label><small>При выключении сцена проигрывается один раз за вход.</small></div>
-    <div class="field"><label>Длительность сцены: <b id="duration-value">${SCENE_SETTINGS.duration} сек.</b></label><input id="scene-duration" type="range" min="8" max="40" step="4" value="${SCENE_SETTINGS.duration}"></div>
+  box.innerHTML = `<h3>Заставка при входе</h3>
+    <div class="settings-card"><label><input id="scene-enabled" type="checkbox" ${SCENE_SETTINGS.enabled?'checked':''}> Показывать заставку</label></div>
+    <div class="settings-card"><label><input id="scene-loop" type="checkbox" ${SCENE_SETTINGS.loop?'checked':''}> Повторять анимацию</label><small>Если выключить — проиграется один раз за вход.</small></div>
+    <div class="field"><label>Сколько показывать: <b id="duration-value">${SCENE_SETTINGS.duration} сек.</b></label><input id="scene-duration" type="range" min="8" max="40" step="4" value="${SCENE_SETTINGS.duration}"></div>
     <div class="modal-actions"><button class="btn-secondary" onclick="closeModal()">Отмена</button><button class="btn-primary" onclick="saveSettings()">Сохранить</button></div>`;
   document.getElementById('scene-duration').addEventListener('input', e=>document.getElementById('duration-value').textContent=e.target.value+' сек.');
   document.getElementById('overlay').classList.add('open');
@@ -1125,7 +1191,7 @@ const THEME_KEY = 'organizer-theme';
 function applyTheme(theme){
   document.documentElement.setAttribute('data-theme', theme);
   const btn = document.getElementById('theme-toggle');
-  if(btn) btn.textContent = theme === 'light' ? '🌙 тёмная тема' : '☀️ светлая тема';
+  if(btn) btn.textContent = theme === 'light' ? 'тёмная тема' : 'светлая тема';
 }
 function toggleTheme(){
   const cur = localStorage.getItem(THEME_KEY) || 'dark';
@@ -1136,13 +1202,9 @@ function toggleTheme(){
 applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
 
 /* ============ COMMAND PALETTE ============ */
-const PALETTE_TYPE_META = {
-  lessons:    {icon:'📘', label:'Урок'},
-  homework:   {icon:'✎', label:'Домашка'},
-  summatives: {icon:'◆', label:'Суммативка'},
-  events:     {icon:'◷', label:'Событие'},
-  goals:      {icon:'◎', label:'Цель'},
-  notes:      {icon:'✦', label:'Заметка'}
+const PALETTE_TYPE_LABELS = {
+  lessons: 'Урок', homework: 'Домашка', summatives: 'Суммативка',
+  events: 'Событие', goals: 'Цель', notes: 'Заметка'
 };
 let paletteMatches = [];
 let paletteActiveIndex = -1;
@@ -1189,11 +1251,10 @@ function paintPaletteResults(){
     return;
   }
   wrap.innerHTML = paletteMatches.map((r, idx) => {
-    const meta = PALETTE_TYPE_META[r.type];
+    const label = PALETTE_TYPE_LABELS[r.type];
     return `<button class="palette-item${idx===paletteActiveIndex?' active':''}" onclick="paletteOpenResult(${idx})">
-      <span class="palette-item-icon">${meta.icon}</span>
       <span><span class="palette-item-title">${escapeHtml(r.title||'(без названия)')}</span>
-      <div class="palette-item-sub">${meta.label}${r.sub? ' · '+escapeHtml(r.sub) : ''}</div></span>
+      <div class="palette-item-sub">${label}${r.sub? ' · '+escapeHtml(r.sub) : ''}</div></span>
     </button>`;
   }).join('');
 }
@@ -1296,7 +1357,7 @@ function pomodoroReset(){
 function pomodoroNotifyDone(){
   burstConfetti(document.querySelector('.pomodoro-toggle'));
   if('Notification' in window && Notification.permission === 'granted'){
-    new Notification(pomodoroMode === 'focus' ? 'Фокус завершён — время отдохнуть' : 'Перерыв закончился, пора за дело');
+    new Notification(pomodoroMode === 'focus' ? '25 минут прошли — можно отдохнуть' : 'Перерыв закончился');
   }
   pomodoroSetMode(pomodoroMode === 'focus' ? 'short' : 'focus');
   document.getElementById('pomodoro').classList.add('open');
