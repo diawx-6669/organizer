@@ -767,6 +767,175 @@ function priorityTagHtml(priority){
   return '<span></span>';
 }
 
+
+/* ============ БЫСТРЫЙ ВВОД ОДНОЙ СТРОКОЙ ============ */
+/* «матем параграф 12 пт !» -> предмет, срок, приоритет и название */
+
+const QUICK_SUBJECT_ALIASES = [
+  ['Математика',                  ['матем','алгебра','геом','матика']],
+  ['Физика',                      ['физика','физ']],
+  ['Химия',                       ['химия','хим']],
+  ['Биология',                    ['биология','био']],
+  ['География',                   ['география','гео']],
+  ['Всемирная история',           ['всемирная','всемирка','всемир']],
+  ['История Казахстана',          ['история','истор']],
+  ['Экономика',                   ['экономика','эконом']],
+  ['Казахский язык и литература', ['казахский','каз','қазақ']],
+  ['Русский язык',                ['русский','рус']],
+  ['Английский язык',             ['английский','англ','инглиш']],
+  ['ИКТ',                         ['икт','информатика','инфо']],
+  ['ИЗО',                         ['изо','искусство']],
+  ['Физкультура',                 ['физкультура','фк','физра']]
+];
+
+const QUICK_WEEKDAYS = {
+  'пн':0,'понедельник':0,'вт':1,'вторник':1,'ср':2,'среда':2,'среду':2,
+  'чт':3,'четверг':3,'пт':4,'пятница':4,'пятницу':4,'сб':5,'суббота':5,'субботу':5,'вс':6,'воскресенье':6
+};
+
+const QUICK_MONTHS = {
+  'янв':0,'фев':1,'мар':2,'апр':3,'мая':4,'май':4,'июн':5,'июл':6,
+  'авг':7,'сен':8,'окт':9,'ноя':10,'дек':11
+};
+
+function quickDateFromWeekday(idx, from){
+  const cur = (from.getDay()+6)%7;           // понедельник = 0
+  let delta = idx - cur;
+  if(delta <= 0) delta += 7;                 // всегда ближайший будущий
+  const d = new Date(from);
+  d.setDate(from.getDate()+delta);
+  return d;
+}
+
+/* Разбор идёт по словам, а не регулярками со \b: в JavaScript граница слова
+   не срабатывает на кириллице, поэтому «завтра» и «пт» просто не находились. */
+function parseQuickTask(input, now){
+  now = now || new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const out = {title:'', subject:'', due:'', priority:'normal'};
+
+  const tokens = String(input).trim().split(/\s+/).filter(Boolean);
+  if(!tokens.length) return out;
+
+  const norm = t => t.toLowerCase().replace(/^[«"(]+|[».,;:!?")]+$/g,'');
+  const used = new Array(tokens.length).fill(false);
+  const take = (...idx) => idx.forEach(i => used[i] = true);
+  const setDue = d => { out.due = schedDateKey(d); };
+  const shift = n => { const d = new Date(today); d.setDate(today.getDate()+n); return d; };
+
+  // приоритет
+  tokens.forEach((t,i)=>{
+    const n = norm(t);
+    if(t === '!' || n === 'срочно' || n === '!'){ out.priority = 'high'; take(i); }
+  });
+
+  // срок — первое подходящее совпадение
+  for(let i=0; i<tokens.length && !out.due; i++){
+    if(used[i]) continue;
+    const n = norm(tokens[i]);
+    let m;
+
+    if((m = n.match(/^(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{2,4}))?$/))){
+      let year = m[3] ? Number(m[3]) : today.getFullYear();
+      if(year < 100) year += 2000;
+      let d = new Date(year, Number(m[2])-1, Number(m[1]));
+      if(!m[3] && d < today) d = new Date(year+1, Number(m[2])-1, Number(m[1]));
+      setDue(d); take(i); continue;
+    }
+
+    if(n === 'сегодня'){ setDue(today); take(i); continue; }
+    if(n === 'завтра'){ setDue(shift(1)); take(i); continue; }
+    if(n === 'послезавтра'){ setDue(shift(2)); take(i); continue; }
+
+    // «через 3 дня»
+    if(n === 'через' && tokens[i+1] && /^\d{1,2}$/.test(norm(tokens[i+1]))){
+      setDue(shift(Number(norm(tokens[i+1]))));
+      take(i, i+1);
+      if(tokens[i+2] && /^(дн|день|дня|дней)$/.test(norm(tokens[i+2]))) take(i+2);
+      continue;
+    }
+
+    // «15 окт»
+    if(/^\d{1,2}$/.test(n) && tokens[i+1]){
+      const mon = QUICK_MONTHS[norm(tokens[i+1]).slice(0,3)];
+      if(mon !== undefined){
+        let d = new Date(today.getFullYear(), mon, Number(n));
+        if(d < today) d = new Date(today.getFullYear()+1, mon, Number(n));
+        setDue(d); take(i, i+1); continue;
+      }
+    }
+
+    // «пт», «в среду», «до пятницы»
+    const wd = QUICK_WEEKDAYS[n];
+    if(wd !== undefined){
+      setDue(quickDateFromWeekday(wd, today));
+      take(i);
+      const prev = i > 0 ? norm(tokens[i-1]) : '';
+      if(['к','на','до','в','во'].includes(prev)) take(i-1);
+      continue;
+    }
+  }
+
+  // предмет — ищем только в первых трёх словах, там его пишут почти всегда
+  let best = null;
+  for(let i=0; i<Math.min(tokens.length, 3); i++){
+    if(used[i]) continue;
+    const n = norm(tokens[i]);
+    QUICK_SUBJECT_ALIASES.forEach(([subject, aliases])=>{
+      aliases.forEach(alias=>{
+        if(!n.startsWith(alias)) return;
+        // после алиаса допускаем только окончание из букв: «матем», «математика», «истории»
+        if(!/^[а-яёa-z]*$/.test(n.slice(alias.length))) return;
+        if(!best || alias.length > best.alias.length) best = {subject, alias, index:i};
+      });
+    });
+    if(best) break;
+  }
+  if(best){ out.subject = best.subject; take(best.index); }
+
+  out.title = tokens.filter((_,i)=>!used[i]).join(' ').replace(/^[:,\s]+|[:,\s]+$/g,'');
+  return out;
+}
+
+function submitQuickTask(){
+  const input = document.getElementById('quick-task-input');
+  if(!input) return;
+  const parsed = parseQuickTask(input.value);
+  if(!parsed.title){
+    renderQuickPreview();
+    return;
+  }
+  DATA.homework.push({
+    id: uid(), done: false, createdAt: Date.now(), notes: '', steps: [],
+    title: parsed.title, subject: parsed.subject, due: parsed.due, priority: parsed.priority
+  });
+  input.value = '';
+  saveData();
+  renderAll();
+  renderQuickPreview();
+  input.focus();
+}
+
+function renderQuickPreview(){
+  const input = document.getElementById('quick-task-input');
+  const hint = document.getElementById('quick-task-hint');
+  if(!input || !hint) return;
+  const raw = input.value.trim();
+  if(!raw){
+    hint.textContent = 'Например: «матем параграф 12 пт !» — предмет, срок и приоритет разберутся сами.';
+    hint.classList.remove('ready');
+    return;
+  }
+  const p = parseQuickTask(raw);
+  const parts = [];
+  parts.push(p.title ? '«' + p.title + '»' : 'без названия');
+  if(p.subject) parts.push(p.subject);
+  if(p.due) parts.push(fmtDate(p.due) + ', ' + dueLabel(p.due));
+  if(p.priority === 'high') parts.push('высокий приоритет');
+  hint.textContent = parts.join(' · ');
+  hint.classList.toggle('ready', !!p.title);
+}
+
 /* ============ SUBJECTS ============ */
 function subjectGroups(){
   const used = new Set([...DATA.homework.map(h=>h.subject), ...DATA.summatives.map(s=>s.subject)].filter(Boolean));
@@ -1569,3 +1738,15 @@ pomodoroRender();
 
 /* статус текущего урока обновляем раз в минуту */
 setInterval(renderTodayLessons, 60*1000);
+
+/* ---- быстрый ввод: Enter добавляет, подсказка обновляется на лету ---- */
+(function(){
+  const input = document.getElementById('quick-task-input');
+  if(!input) return;
+  input.addEventListener('input', renderQuickPreview);
+  input.addEventListener('keydown', e=>{
+    if(e.key === 'Enter'){ e.preventDefault(); submitQuickTask(); }
+    if(e.key === 'Escape'){ input.value = ''; renderQuickPreview(); input.blur(); }
+  });
+  renderQuickPreview();
+})();
