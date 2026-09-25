@@ -1,6 +1,7 @@
 /* ============ STATE & STORAGE ============ */
 const STORAGE_KEY = 'student-data';
-let DATA = { lessons: [], homework: [], events: [], goals: [], summatives: [], notes: [], activityLog: {} };
+let DATA = { lessons: [], homework: [], events: [], goals: [], summatives: [], notes: [],
+             activityLog: {}, extraSubjects: [], hiddenSubjects: [] };
 let editingId = null;
 let editingType = null;
 let calDate = new Date();
@@ -10,7 +11,9 @@ const MONTHS = ['января','февраля','марта','апреля','м�
 const MONTHS_NOM = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const DOWS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
-const SUBJECTS = [
+/* Предметы из расписания — их убрать нельзя, они приходят из сетки уроков.
+   Свои добавляются в DATA.extraSubjects, спрятанные лежат в DATA.hiddenSubjects. */
+const BASE_SUBJECTS = [
   'Математика','Физика','Химия','Биология','География',
   'Всемирная история','История Казахстана','Экономика',
   'Казахский язык и литература','Русский язык','Английский язык',
@@ -514,14 +517,16 @@ function exportBackup(){
 }
 
 const DATA_LISTS = ['lessons','homework','events','goals','summatives','notes'];
+const DATA_SETS = ['extraSubjects','hiddenSubjects'];
 
 function emptyData(){
-  return {lessons:[], homework:[], events:[], goals:[], summatives:[], notes:[], activityLog:{}};
+  return {lessons:[], homework:[], events:[], goals:[], summatives:[], notes:[],
+          activityLog:{}, extraSubjects:[], hiddenSubjects:[]};
 }
 
 function normalizeData(raw){
   const data = Object.assign(emptyData(), raw);
-  DATA_LISTS.forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
+  [...DATA_LISTS, ...DATA_SETS].forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
   return data;
 }
 
@@ -589,6 +594,9 @@ function applyImport(mode){
         seen.add(item.id);
         DATA[key].push(item);
       });
+    });
+    DATA_SETS.forEach(key=>{
+      incoming[key].forEach(v => { if(!DATA[key].includes(v)) DATA[key].push(v); });
     });
     // активность складываем по дням, берём большее
     Object.entries(incoming.activityLog || {}).forEach(([day, n])=>{
@@ -1170,11 +1178,98 @@ function renderQuickPreview(){
 }
 
 /* ============ SUBJECTS ============ */
+/* предмет занят, если он есть в записях — такой не прячем */
+function subjectInUse(subject){
+  return DATA.homework.some(h=>h.subject===subject)
+      || DATA.summatives.some(x=>x.subject===subject)
+      || DATA.notes.some(n=>n.subject===subject);
+}
+
 function subjectGroups(){
-  const used = new Set([...DATA.homework.map(h=>h.subject), ...DATA.summatives.map(s=>s.subject)].filter(Boolean));
-  const list = [...SUBJECTS];
-  used.forEach(s=>{ if(!list.includes(s)) list.push(s); });
+  const hidden = new Set(DATA.hiddenSubjects || []);
+  const list = [];
+  const add = s => { if(s && !list.includes(s)) list.push(s); };
+
+  BASE_SUBJECTS.forEach(s => { if(!hidden.has(s) || subjectInUse(s)) add(s); });
+  (DATA.extraSubjects || []).forEach(add);
+  // всё, что уже используется в записях, должно быть в списке в любом случае
+  [...DATA.homework, ...DATA.summatives, ...DATA.notes].forEach(x => add(x.subject));
   return list;
+}
+
+function addSubject(name){
+  const clean = String(name||'').trim();
+  if(!clean) return false;
+  if(subjectGroups().some(s => s.toLowerCase() === clean.toLowerCase())) return false;
+  DATA.extraSubjects = DATA.extraSubjects || [];
+  DATA.extraSubjects.push(clean);
+  DATA.hiddenSubjects = (DATA.hiddenSubjects || []).filter(s => s !== clean);
+  saveData();
+  return true;
+}
+
+function removeSubject(name){
+  if(subjectInUse(name)) return false;
+  DATA.extraSubjects = (DATA.extraSubjects || []).filter(s => s !== name);
+  if(BASE_SUBJECTS.includes(name)){
+    DATA.hiddenSubjects = DATA.hiddenSubjects || [];
+    if(!DATA.hiddenSubjects.includes(name)) DATA.hiddenSubjects.push(name);
+  }
+  if(selectedSubject === name) selectedSubject = null;
+  saveData();
+  return true;
+}
+
+function openSubjectsManager(){
+  const box = document.getElementById('modal-box');
+  const rows = subjectGroups().map(subj=>{
+    const used = subjectInUse(subj);
+    const fromSchedule = Object.values(SCHED_RUS).includes(subj);
+    const lock = used ? 'есть записи' : (fromSchedule ? 'из расписания' : '');
+    return `<div class="subj-row">
+      <span>${escapeHtml(subj)}</span>
+      ${used
+        ? `<em>${lock}</em>`
+        : `<button class="subj-del" onclick="removeSubjectFromManager('${escapeHtml(subj).replace(/'/g,"\\'")}')">убрать</button>`}
+    </div>`;
+  }).join('');
+
+  box.innerHTML = `<h3>Предметы</h3>
+    <div class="field">
+      <label>Добавить свой</label>
+      <input id="new-subject" type="text" placeholder="Например: Робототехника">
+    </div>
+    <div class="subj-list">${rows}</div>
+    <p class="import-note">Предмет, по которому уже есть домашка, суммативка или заметка,
+      убрать нельзя — сначала удали или перенеси эти записи.</p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Закрыть</button>
+      <button class="btn-primary" onclick="addSubjectFromManager()">Добавить</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('open');
+  const input = document.getElementById('new-subject');
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addSubjectFromManager(); } });
+  setTimeout(()=>input.focus(), 40);
+}
+
+function addSubjectFromManager(){
+  const input = document.getElementById('new-subject');
+  if(!input) return;
+  if(addSubject(input.value)){
+    renderAll();
+    updateSubjectsDatalist();
+    openSubjectsManager();
+  } else {
+    input.select();
+  }
+}
+
+function removeSubjectFromManager(name){
+  if(removeSubject(name)){
+    renderAll();
+    updateSubjectsDatalist();
+    openSubjectsManager();
+  }
 }
 
 let hwFilterSubject = 'all';
@@ -1959,7 +2054,7 @@ function openModal(type, id, prefill){
 function updateSubjectsDatalist(){
   const dl = document.getElementById('subjects-datalist');
   if(!dl) return;
-  dl.innerHTML = SUBJECTS.map(s=>`<option value="${escapeHtml(s)}"></option>`).join('');
+  dl.innerHTML = subjectGroups().map(s=>`<option value="${escapeHtml(s)}"></option>`).join('');
 }
 
 function closeModal(){
