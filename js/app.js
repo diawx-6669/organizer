@@ -971,6 +971,7 @@ function renderHomework(){
       ${priorityTagHtml(item.priority)}
       ${dueTagHtml(item.due, item.done)}
       <div class="row-actions">
+        ${snoozeBtnHtml('homework', item.id)}
         <button class="icon-btn" aria-label="Изменить" onclick="openModal('homework','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
         <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('homework','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
       </div>`;
@@ -1008,6 +1009,108 @@ function priorityTagHtml(priority){
   return '<span></span>';
 }
 
+
+
+/* ============ ПЕРЕНОС СРОКА ============ */
+/* Задание не сделано к сроку — не обязательно лезть в форму,
+   можно сдвинуть дату в два клика, в том числе на следующий урок. */
+
+function shiftDate(dateStr, days){
+  const base = dateStr ? new Date(dateStr) : new Date();
+  base.setHours(0,0,0,0);
+  base.setDate(base.getDate() + days);
+  return schedDateKey(base);
+}
+
+/* когда по этому предмету следующий урок по расписанию */
+function nextLessonDate(subject, fromDateStr){
+  if(!subject) return null;
+  const from = fromDateStr ? new Date(fromDateStr) : new Date();
+  from.setHours(0,0,0,0);
+  for(let i = 1; i <= 21; i++){                 // дальше трёх недель не ищем
+    const day = new Date(from);
+    day.setDate(from.getDate() + i);
+    const hit = schedLessonsOn(day).some(l => !l.isHomeroom && l.subject === subject);
+    if(hit) return schedDateKey(day);
+  }
+  return null;
+}
+
+let snoozeTarget = null;
+
+function openSnooze(type, id, event){
+  event.stopPropagation();
+  const item = DATA[type].find(x => x.id === id);
+  if(!item) return;
+  snoozeTarget = {type, id};
+
+  const today = schedDateKey(new Date());
+  const dueField = type === 'events' ? 'date' : 'due';
+  const from = item[dueField] && item[dueField] > today ? item[dueField] : today;
+
+  const options = [
+    {label: 'На сегодня',    date: today},
+    {label: 'На завтра',     date: shiftDate(today, 1)},
+    {label: 'Через неделю',  date: shiftDate(today, 7)},
+    {label: 'Ещё день',      date: shiftDate(from, 1)}
+  ];
+
+  // «Следующий физика» по-русски не звучит — предмет уже виден в строке
+  const lesson = nextLessonDate(item.subject, today);
+  if(lesson) options.unshift({label: 'К следующему уроку', date: lesson});
+
+  const menu = ensureSnoozeMenu();
+  menu.innerHTML = options.map(o=>
+    `<button onclick="applySnooze('${o.date}')">
+      <span>${escapeHtml(o.label)}</span><em>${escapeHtml(fmtDate(o.date))}</em></button>`
+  ).join('');
+
+  const rect = event.currentTarget.getBoundingClientRect();
+  menu.classList.add('open');
+  const top = rect.bottom + 6;
+  menu.style.top = Math.min(top, window.innerHeight - menu.offsetHeight - 10) + 'px';
+  menu.style.left = Math.max(10, Math.min(rect.left - menu.offsetWidth + rect.width,
+                                          window.innerWidth - menu.offsetWidth - 10)) + 'px';
+}
+
+function ensureSnoozeMenu(){
+  let menu = document.getElementById('snooze-menu');
+  if(!menu){
+    menu = document.createElement('div');
+    menu.id = 'snooze-menu';
+    menu.className = 'snooze-menu';
+    document.body.appendChild(menu);
+    document.addEventListener('click', e=>{
+      if(!e.target.closest('#snooze-menu') && !e.target.closest('.snooze-btn')) closeSnooze();
+    });
+    document.addEventListener('keydown', e=>{ if(e.key === 'Escape') closeSnooze(); });
+  }
+  return menu;
+}
+
+function closeSnooze(){
+  const menu = document.getElementById('snooze-menu');
+  if(menu) menu.classList.remove('open');
+  snoozeTarget = null;
+}
+
+function applySnooze(date){
+  if(!snoozeTarget) return;
+  const {type, id} = snoozeTarget;
+  const item = DATA[type].find(x => x.id === id);
+  if(item) item[type === 'events' ? 'date' : 'due'] = date;
+  closeSnooze();
+  saveData();
+  renderAll();
+}
+
+const SNOOZE_ICON = '<svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true">' +
+  '<circle cx="8" cy="8.5" r="5.5"/><path d="M8 5.5v3l2 1.2M5.5 1.8 3 3.4M10.5 1.8 13 3.4"/></svg>';
+
+function snoozeBtnHtml(type, id){
+  return `<button class="icon-btn snooze-btn" aria-label="Перенести срок" title="Перенести срок"
+    onclick="openSnooze('${type}','${id}', event)">${SNOOZE_ICON}</button>`;
+}
 
 /* ============ БЫСТРЫЙ ВВОД ОДНОЙ СТРОКОЙ ============ */
 /* «матем параграф 12 пт !» -> предмет, срок, приоритет и название */
@@ -1351,6 +1454,7 @@ function renderSubjects(){
         ${priorityTagHtml(item.priority)}
         ${dueTagHtml(item.due, item.done)}
         <div class="row-actions">
+          ${snoozeBtnHtml('homework', item.id)}
           <button class="icon-btn" aria-label="Изменить" onclick="openModal('homework','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
           <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('homework','${item.id}'); renderSubjects();"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
         </div>`;
@@ -1560,6 +1664,7 @@ function summativeRowHtml(item, opts){
     <span class="${gradeTagClass}">${kindLabel}${hasScore? ' · '+escapeHtml(String(item.score))+'/'+escapeHtml(String(item.maxScore))+' ('+pct+'%)' : ' · без оценки'}</span>
     ${dueTagHtml(item.due, item.done)}
     <div class="row-actions">
+      ${snoozeBtnHtml('summatives', item.id)}
       <button class="icon-btn" aria-label="Изменить" onclick="openModal('summatives','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
       <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('summatives','${item.id}'); ${opts.afterDelete||''}"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
     </div>`;
