@@ -1828,3 +1828,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   font-size:11px; cursor:pointer;
 }
 .bulk-row button:hover{ color: var(--text); border-color: var(--gold-soft); border-style:solid; }
+
+/* ============ ФИЛЬТРЫ И ПОДСВЕТКА В ПОИСКЕ ============ */
+.palette-types{
+  display:flex; gap:6px; flex-wrap:wrap;
+  padding:9px 14px;
+  border-bottom:1px solid var(--line);
+}
+.palette-type{
+  padding:4px 10px; border-radius:20px;
+  border:1px solid var(--line); background: var(--surface-2);
+  color: var(--text-faint); font-size:10.5px; cursor:pointer;
+}
+.palette-type:hover{ color: var(--text-dim); }
+.palette-type.active{ color: var(--gold); border-color: var(--gold-soft); background: var(--gold-soft); font-weight:600; }
+.palette-item mark{
+  background: var(--gold-soft); color: var(--gold);
+  border-radius:3px; padding:0 1px;
+}

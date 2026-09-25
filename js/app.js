@@ -2613,6 +2613,7 @@ function openPalette(){
   const input = document.getElementById('palette-input');
   overlay.classList.add('open');
   input.value = '';
+  paletteType = 'all';
   renderPaletteResults('');
   setTimeout(()=>input.focus(), 30);
 }
@@ -2620,26 +2621,75 @@ function closePalette(){
   document.getElementById('palette-overlay').classList.remove('open');
 }
 
+let paletteType = 'all';
+let paletteQuery = '';
+
+const PALETTE_TYPES = [
+  {key:'all',        label:'Всё'},
+  {key:'homework',   label:'Домашка'},
+  {key:'summatives', label:'Суммативки'},
+  {key:'events',     label:'Мероприятия'},
+  {key:'goals',      label:'Цели'},
+  {key:'notes',      label:'Заметки'},
+  {key:'lessons',    label:'Уроки'}
+];
+
+function setPaletteType(key){
+  paletteType = key;
+  renderPaletteResults(paletteQuery);
+  const input = document.getElementById('palette-input');
+  if(input) input.focus();
+}
+
 function paletteSearch(query){
   const q = query.trim().toLowerCase();
   const results = [];
-  const push = (type, item, title, sub) => results.push({type, id:item.id, title, sub});
+  /* haystack — то, по чему ищем; в выдаче оно не показывается,
+     поэтому туда можно класть заметки и шаги */
+  const push = (type, item, title, sub, extra) =>
+    results.push({type, id:item.id, title: title||'', sub: sub||'',
+                  haystack: [title, sub, extra].filter(Boolean).join(' ').toLowerCase()});
 
-  DATA.lessons.forEach(i => push('lessons', i, i.title, [i.teacher, i.schedule].filter(Boolean).join(' · ')));
-  DATA.homework.forEach(i => push('homework', i, i.title, i.subject||''));
-  DATA.summatives.forEach(i => push('summatives', i, i.title, [(i.kind==='soch'?'СОЧ':'СОР'), i.subject].filter(Boolean).join(' · ')));
-  DATA.events.forEach(i => push('events', i, i.title, i.type||''));
-  DATA.goals.forEach(i => push('goals', i, i.title, i.desc||''));
+  DATA.lessons.forEach(i => push('lessons', i, i.title, [i.teacher, i.schedule, i.room].filter(Boolean).join(' · ')));
+  DATA.homework.forEach(i => push('homework', i, i.title, i.subject,
+    [i.notes, (i.steps||[]).map(st=>st.text).join(' ')].filter(Boolean).join(' ')));
+  DATA.summatives.forEach(i => push('summatives', i, i.title,
+    [(i.kind==='soch'?'СОЧ':'СОР'), i.subject].filter(Boolean).join(' · '), i.notes));
+  DATA.events.forEach(i => push('events', i, i.title, i.type, i.link));
+  DATA.goals.forEach(i => push('goals', i, i.title, i.desc,
+    (i.steps||[]).map(st=>st.text).join(' ')));
   DATA.notes.forEach(i => push('notes', i, i.title, [i.subject, i.text].filter(Boolean).join(' · ')));
 
-  if(!q) return results.slice(0, 8);
-  return results.filter(r => (r.title+' '+r.sub).toLowerCase().includes(q)).slice(0, 30);
+  const byType = paletteType === 'all' ? results : results.filter(r => r.type === paletteType);
+  if(!q) return byType.slice(0, 10);
+  return byType.filter(r => r.haystack.includes(q)).slice(0, 40);
+}
+
+/* подсветка совпадения — экранируем до вставки, ищем уже в экранированном тексте */
+function highlight(text, query){
+  const safe = escapeHtml(text || '');
+  const q = query.trim();
+  if(!q) return safe;
+  const needle = escapeHtml(q);
+  const at = safe.toLowerCase().indexOf(needle.toLowerCase());
+  if(at === -1) return safe;
+  return safe.slice(0, at) + '<mark>' + safe.slice(at, at + needle.length) + '</mark>' + safe.slice(at + needle.length);
 }
 
 function renderPaletteResults(query){
+  paletteQuery = query;
   paletteMatches = paletteSearch(query);
   paletteActiveIndex = paletteMatches.length ? 0 : -1;
+  paintPaletteTypes();
   paintPaletteResults();
+}
+
+function paintPaletteTypes(){
+  const wrap = document.getElementById('palette-types');
+  if(!wrap) return;
+  wrap.innerHTML = PALETTE_TYPES.map(t =>
+    `<button class="palette-type${t.key===paletteType?' active':''}" onclick="setPaletteType('${t.key}')">${t.label}</button>`
+  ).join('');
 }
 
 function paintPaletteResults(){
@@ -2651,8 +2701,8 @@ function paintPaletteResults(){
   wrap.innerHTML = paletteMatches.map((r, idx) => {
     const label = PALETTE_TYPE_LABELS[r.type];
     return `<button class="palette-item${idx===paletteActiveIndex?' active':''}" onclick="paletteOpenResult(${idx})">
-      <span><span class="palette-item-title">${escapeHtml(r.title||'(без названия)')}</span>
-      <div class="palette-item-sub">${label}${r.sub? ' · '+escapeHtml(r.sub) : ''}</div></span>
+      <span><span class="palette-item-title">${highlight(r.title||'(без названия)', paletteQuery)}</span>
+      <div class="palette-item-sub">${label}${r.sub? ' · '+highlight(r.sub, paletteQuery) : ''}</div></span>
     </button>`;
   }).join('');
 }
