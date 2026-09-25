@@ -2263,8 +2263,27 @@ function showDayPanel(dateObj){
   const {hw, summ, ev} = dayItemsFor(dateObj);
   const listEl = document.getElementById('day-panel-list');
   listEl.innerHTML = '';
+
+  // уроки по расписанию на этот день — без них панель показывала только дедлайны
+  const lessons = schedLessonsOn(dateObj).filter(l => !l.isHomeroom);
+  if(lessons.length){
+    const block = document.createElement('div');
+    block.className = 'day-lessons';
+    block.innerHTML = '<div class="day-lessons-title">уроки по расписанию</div>' +
+      lessons.map(l =>
+        `<div class="day-lesson"><span>${l.time}</span><b>${escapeHtml(l.subject)}</b>` +
+        `<em>${escapeHtml(l.room)}</em></div>`
+      ).join('');
+    listEl.appendChild(block);
+  }
+
   if(hw.length===0 && summ.length===0 && ev.length===0){
-    listEl.innerHTML = '<div class="empty-note">На этот день ничего не запланировано.</div>';
+    const note = document.createElement('div');
+    note.className = 'empty-note';
+    note.textContent = lessons.length
+      ? 'Дедлайнов на этот день нет.'
+      : 'На этот день ничего не запланировано.';
+    listEl.appendChild(note);
     return;
   }
   hw.forEach(item=>{
