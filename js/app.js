@@ -525,6 +525,71 @@ function downloadFile(content, filename, type){
   URL.revokeObjectURL(url);
 }
 
+
+/* ============ ВЫГРУЗКА В CSV ============ */
+/* Открывается в Numbers и Excel. Разделитель — точка с запятой: в русской
+   локали Excel запятая считается десятичным разделителем и всё съезжает
+   в один столбец. BOM в начале — иначе Excel показывает кириллицу кракозябрами. */
+
+function csvCell(value){
+  const text = String(value === null || value === undefined ? '' : value);
+  return /[";\n\r]/.test(text) ? '"' + text.replace(/"/g,'""') + '"' : text;
+}
+
+function csvFrom(headers, rows){
+  const lines = [headers, ...rows].map(row => row.map(csvCell).join(';'));
+  return '﻿' + lines.join('\r\n') + '\r\n';
+}
+
+function exportHomeworkCsv(){
+  const rows = [...DATA.homework]
+    .sort((a,b)=> String(a.due||'').localeCompare(String(b.due||'')))
+    .map(h => [
+      h.due || '', h.subject || '', h.title || '',
+      h.done ? 'сделано' : 'не сделано',
+      {high:'высокий', low:'низкий'}[h.priority] || 'обычный',
+      Array.isArray(h.steps) ? h.steps.map(st => (st.done ? '[x] ' : '[ ] ') + st.text).join(' | ') : '',
+      h.notes || ''
+    ]);
+  return csvFrom(['Срок','Предмет','Задание','Статус','Приоритет','Шаги','Заметки'], rows);
+}
+
+function exportSummativesCsv(){
+  const rows = [...DATA.summatives]
+    .sort((a,b)=> String(a.due||'').localeCompare(String(b.due||'')))
+    .map(x => {
+      const has = x.score !== null && x.score !== undefined && x.score !== '' && Number(x.maxScore) > 0;
+      return [
+        x.due || '', x.subject || '', x.kind === 'soch' ? 'СОЧ' : 'СОР', x.title || '',
+        has ? x.score : '', x.maxScore || '',
+        has ? Math.round((Number(x.score)/Number(x.maxScore))*100) + '%' : '',
+        x.notes || ''
+      ];
+    });
+  return csvFrom(['Дата','Предмет','Тип','Название','Балл','Максимум','Процент','Заметки'], rows);
+}
+
+function openCsvExport(){
+  const box = document.getElementById('modal-box');
+  box.innerHTML = `<h3>Выгрузить таблицей</h3>
+    <p class="import-note">Файл .csv откроется в Numbers, Excel или Google Таблицах.</p>
+    <div class="modal-actions" style="justify-content:flex-start;flex-wrap:wrap">
+      <button class="btn-secondary" onclick="downloadCsv('homework')">Домашка (${DATA.homework.length})</button>
+      <button class="btn-secondary" onclick="downloadCsv('summatives')">Суммативки (${DATA.summatives.length})</button>
+    </div>
+    <div class="modal-actions"><button class="btn-primary" onclick="closeModal()">Закрыть</button></div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+
+function downloadCsv(which){
+  const stamp = schedDateKey(new Date());
+  if(which === 'homework'){
+    downloadFile(exportHomeworkCsv(), `domashka-${stamp}.csv`, 'text/csv;charset=utf-8');
+  } else {
+    downloadFile(exportSummativesCsv(), `summativki-${stamp}.csv`, 'text/csv;charset=utf-8');
+  }
+}
+
 /* ---- локальный бэкап: экспорт/импорт JSON-файла ---- */
 function exportBackup(){
   downloadFile(JSON.stringify(DATA, null, 2),
