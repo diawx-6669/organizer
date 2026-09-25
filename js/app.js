@@ -1669,22 +1669,41 @@ function renderSummatives(){
 }
 
 /* ============ NOTES (Заметки) ============ */
+/* закреплённые заметки всегда наверху */
+function togglePin(id){
+  const note = DATA.notes.find(n=>n.id===id);
+  if(!note) return;
+  note.pinned = !note.pinned;
+  saveData();
+  renderNotes();
+}
+
 function renderNotes(){
   const wrap = document.getElementById('list-notes');
   if(!wrap) return;
   wrap.innerHTML = '';
   if(DATA.notes.length===0){ wrap.innerHTML = '<div class="empty-note">Заметок пока нет.</div>'; return; }
-  const sorted = [...DATA.notes].sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+
+  const sorted = [...DATA.notes].sort((a,b)=>{
+    if(!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return (b.createdAt||0)-(a.createdAt||0);
+  });
+
   sorted.forEach(item=>{
     const card = document.createElement('div');
-    card.className = 'goal-card note-card';
+    card.className = 'goal-card note-card' + (item.pinned ? ' pinned' : '');
     card.innerHTML = `
       <div class="goal-top">
         <div>
           <div class="goal-title">${escapeHtml(item.title)}</div>
+          ${item.subject? `<div class="note-subject">${escapeHtml(item.subject)}</div>`:''}
           ${item.text? `<div class="goal-desc">${escapeHtml(item.text)}</div>`:''}
         </div>
         <div class="row-actions">
+          <button class="icon-btn pin-btn${item.pinned?' on':''}" aria-label="${item.pinned?'Открепить':'Закрепить'}"
+                  title="${item.pinned?'Открепить':'Закрепить наверху'}" onclick="togglePin('${item.id}')">
+            <svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10.5V14M5 2h6l-.8 4.2 2 2.1V10H3.8V8.3l2-2.1z"/></svg>
+          </button>
           <button class="icon-btn" aria-label="Изменить" onclick="openModal('notes','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
           <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('notes','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
         </div>
@@ -1877,6 +1896,7 @@ const FIELD_DEFS = {
   ],
   notes: [
     {key:'title', label:'Заголовок', type:'text', required:true},
+    {key:'subject', label:'Предмет (не обязательно)', type:'text', list:'subjects-datalist'},
     {key:'text', label:'Текст', type:'textarea'}
   ]
 };
@@ -2143,7 +2163,7 @@ function paletteSearch(query){
   DATA.summatives.forEach(i => push('summatives', i, i.title, [(i.kind==='soch'?'СОЧ':'СОР'), i.subject].filter(Boolean).join(' · ')));
   DATA.events.forEach(i => push('events', i, i.title, i.type||''));
   DATA.goals.forEach(i => push('goals', i, i.title, i.desc||''));
-  DATA.notes.forEach(i => push('notes', i, i.title, i.text||''));
+  DATA.notes.forEach(i => push('notes', i, i.title, [i.subject, i.text].filter(Boolean).join(' · ')));
 
   if(!q) return results.slice(0, 8);
   return results.filter(r => (r.title+' '+r.sub).toLowerCase().includes(q)).slice(0, 30);
