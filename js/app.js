@@ -1,6 +1,6 @@
 /* ============ STATE & STORAGE ============ */
 const STORAGE_KEY = 'student-data';
-let DATA = { lessons: [], homework: [], events: [], goals: [], summatives: [], notes: [], activityLog: [] };
+let DATA = { lessons: [], homework: [], events: [], goals: [], summatives: [], notes: [], activityLog: {} };
 let editingId = null;
 let editingType = null;
 let calDate = new Date();
@@ -364,11 +364,12 @@ async function loadData(){
       DATA = Object.assign({lessons:[],homework:[],events:[],goals:[],summatives:[],notes:[],activityLog:[]}, parsed);
       if(!Array.isArray(DATA.summatives)) DATA.summatives = [];
       if(!Array.isArray(DATA.notes)) DATA.notes = [];
-      if(!Array.isArray(DATA.activityLog)) DATA.activityLog = [];
+      migrateActivityLog();
     }
   }catch(e){
     console.log('Сохранённых данных нет, начинаем с пустого', e);
   }
+  migrateActivityLog();
   migrateLegacySummatives();
   syncOfficialSummatives();
   renderAll();
@@ -524,7 +525,8 @@ function importBackup(file){
       DATA = Object.assign({lessons:[],homework:[],events:[],goals:[],summatives:[],notes:[],activityLog:[]}, parsed);
       if(!Array.isArray(DATA.summatives)) DATA.summatives = [];
       if(!Array.isArray(DATA.notes)) DATA.notes = [];
-      if(!Array.isArray(DATA.activityLog)) DATA.activityLog = [];
+      migrateActivityLog();
+      migrateActivityLog();
       migrateLegacySummatives();
       saveData();
       renderAll();
@@ -613,9 +615,65 @@ function renderDashboard(){
   }
 
   renderTodayLessons();
+  renderActivityHeatmap();
   renderOrbit();
 }
 
+
+
+/* ============ КАРТА АКТИВНОСТИ ============ */
+/* Одна краска, четыре ступени — чем больше закрыто за день, тем плотнее.
+   Ступени проверены на монотонность светлоты отдельно для каждой темы. */
+const HEAT_WEEKS = 18;
+
+function heatLevel(count){
+  if(!count) return 0;
+  if(count === 1) return 1;
+  if(count === 2) return 2;
+  if(count <= 4) return 3;
+  return 4;
+}
+
+function renderActivityHeatmap(){
+  const wrap = document.getElementById('activity-heatmap');
+  if(!wrap) return;
+
+  const days = activityDays();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = schedGetMonday(today);
+  start.setDate(start.getDate() - 7*(HEAT_WEEKS-1));
+
+  let total = 0, cells = '';
+  const monthMarks = [];
+  for(let w = 0; w < HEAT_WEEKS; w++){
+    let col = '';
+    for(let d = 0; d < 7; d++){
+      const date = new Date(start);
+      date.setDate(start.getDate() + w*7 + d);
+      if(date > today){ col += '<i class="heat-cell heat-void"></i>'; continue; }
+      const key = schedDateKey(date);
+      const n = days[key] || 0;
+      total += n;
+      const title = `${date.getDate()} ${MONTHS[date.getMonth()]}: ` +
+        (n ? `${n} ${plural(n,'задача','задачи','задач')}` : 'ничего не закрыто');
+      col += `<i class="heat-cell heat-${heatLevel(n)}" title="${escapeHtml(title)}"></i>`;
+      if(d === 0) monthMarks.push(date.getDate() <= 7 ? MONTHS_NOM[date.getMonth()].slice(0,3).toLowerCase() : '');
+    }
+    cells += `<div class="heat-col">${col}</div>`;
+  }
+
+  const streak = computeStreak();
+  wrap.innerHTML = `
+    <div class="heat-head">
+      <div><strong>Что закрыто за ${HEAT_WEEKS} недель</strong>
+        <small>${total} ${plural(total,'задача','задачи','задач')} · подряд: ${streak} ${plural(streak,'день','дня','дней')}</small></div>
+      <div class="heat-legend"><span>реже</span>
+        <i class="heat-cell heat-0"></i><i class="heat-cell heat-1"></i><i class="heat-cell heat-2"></i><i class="heat-cell heat-3"></i><i class="heat-cell heat-4"></i>
+        <span>чаще</span></div>
+    </div>
+    <div class="heat-grid">${cells}</div>
+    <div class="heat-months">${monthMarks.map(m=>`<span>${m}</span>`).join('')}</div>`;
+}
 
 /* ---- блок "уроки на сегодня" ---- */
 function renderTodayLessons(){
@@ -1607,13 +1665,31 @@ function toggleDone(type, id, evt){
 }
 
 /* ============ STREAK & CELEBRATION ============ */
+/* Раньше лог был массивом дат без повторов — теперь это карта
+   «дата -> сколько закрыто за день», чтобы рисовать карту активности. */
+function migrateActivityLog(){
+  if(Array.isArray(DATA.activityLog)){
+    const map = {};
+    DATA.activityLog.forEach(d => { map[d] = (map[d]||0) + 1; });
+    DATA.activityLog = map;
+  } else if(!DATA.activityLog || typeof DATA.activityLog !== 'object'){
+    DATA.activityLog = {};
+  }
+}
+
 function logActivity(){
+  migrateActivityLog();
   const key = schedDateKey(new Date());
-  if(!DATA.activityLog.includes(key)) DATA.activityLog.push(key);
+  DATA.activityLog[key] = (DATA.activityLog[key] || 0) + 1;
+}
+
+function activityDays(){
+  migrateActivityLog();
+  return DATA.activityLog;
 }
 
 function computeStreak(){
-  const set = new Set(DATA.activityLog);
+  const set = new Set(Object.keys(activityDays()));
   const cursor = new Date(); cursor.setHours(0,0,0,0);
   if(!set.has(schedDateKey(cursor))) cursor.setDate(cursor.getDate()-1);
   let streak = 0;
