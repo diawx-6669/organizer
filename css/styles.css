@@ -1817,3 +1817,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .goal-card.reached{ opacity:.62; }
 .goal-card.reached .goal-title{ color: var(--sage); }
 .goal-card .steps{ margin-top:10px; }
+
+/* ============ МАССОВЫЕ ДЕЙСТВИЯ ============ */
+.bulk-row{ display:none; gap:8px; flex-wrap:wrap; margin: -6px 0 14px; }
+.bulk-row.on{ display:flex; }
+.bulk-row button{
+  padding:5px 12px; border-radius:20px;
+  border:1px dashed var(--line-strong);
+  background:none; color: var(--text-faint);
+  font-size:11px; cursor:pointer;
+}
+.bulk-row button:hover{ color: var(--text); border-color: var(--gold-soft); border-style:solid; }
