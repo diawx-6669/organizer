@@ -392,18 +392,128 @@ function flashSaved(){
   el.classList.add('flash');
 }
 
-/* ---- локальный бэкап: экспорт/импорт JSON-файла ---- */
-function exportBackup(){
-  const blob = new Blob([JSON.stringify(DATA, null, 2)], {type:'application/json'});
+
+/* ============ ЭКСПОРТ В КАЛЕНДАРЬ (.ics) ============ */
+/* Файл можно открыть в Календаре на телефоне или импортировать в Google Calendar. */
+
+function icsEscape(text){
+  return String(text||'')
+    .replace(/\\/g,'\\\\')
+    .replace(/;/g,'\\;')
+    .replace(/,/g,'\\,')
+    .replace(/\r?\n/g,'\\n');
+}
+
+/* по стандарту строка не длиннее 75 октетов, продолжение — с пробела */
+function icsFold(line){
+  const bytes = new TextEncoder().encode(line);
+  if(bytes.length <= 75) return line;
+  const out = [];
+  let cur = '', curLen = 0, limit = 75;
+  for(const ch of line){
+    const size = new TextEncoder().encode(ch).length;
+    if(curLen + size > limit){ out.push(cur); cur = ' '; curLen = 1; limit = 75; }
+    cur += ch; curLen += size;
+  }
+  if(cur) out.push(cur);
+  return out.join('\r\n');
+}
+
+function icsDate(dateStr){
+  return String(dateStr).replace(/-/g,'');
+}
+function icsDatePlusDay(dateStr){
+  const d = new Date(dateStr);
+  d.setDate(d.getDate()+1);
+  return icsDate(schedDateKey(d));
+}
+function icsStamp(){
+  return new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+}
+
+function collectIcsEvents(){
+  const events = [];
+  DATA.homework.filter(h=>h.due).forEach(h=>{
+    const steps = Array.isArray(h.steps) && h.steps.length
+      ? '\nШаги: ' + h.steps.map(st=>st.text).join('; ') : '';
+    events.push({
+      uid: 'hw-' + h.id,
+      date: h.due,
+      summary: 'Домашка: ' + h.title + (h.subject ? ' (' + h.subject + ')' : ''),
+      description: (h.notes||'') + steps
+    });
+  });
+  DATA.summatives.filter(x=>x.due).forEach(x=>{
+    events.push({
+      uid: 'sor-' + x.id,
+      date: x.due,
+      summary: (x.kind === 'soch' ? 'СОЧ' : 'СОР') + (x.subject ? ': ' + x.subject : ''),
+      description: x.title + (x.notes ? '\n' + x.notes : '')
+    });
+  });
+  DATA.events.filter(e=>e.date).forEach(e=>{
+    events.push({
+      uid: 'ev-' + e.id,
+      date: e.date,
+      summary: e.title,
+      description: [e.type, e.link].filter(Boolean).join('\n')
+    });
+  });
+  return events;
+}
+
+function buildIcs(){
+  const stamp = icsStamp();
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//moy-organayzer//RU',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:Мой органайзер'
+  ];
+  collectIcsEvents().forEach(ev=>{
+    lines.push(
+      'BEGIN:VEVENT',
+      'UID:' + ev.uid + '@moy-organayzer',
+      'DTSTAMP:' + stamp,
+      'DTSTART;VALUE=DATE:' + icsDate(ev.date),
+      'DTEND;VALUE=DATE:' + icsDatePlusDay(ev.date),
+      'SUMMARY:' + icsEscape(ev.summary),
+      'DESCRIPTION:' + icsEscape(ev.description),
+      'END:VEVENT'
+    );
+  });
+  lines.push('END:VCALENDAR');
+  return lines.map(icsFold).join('\r\n') + '\r\n';
+}
+
+function exportIcs(){
+  const events = collectIcsEvents();
+  if(events.length === 0){
+    alert('Пока нечего выгружать — нет ни одной записи с датой.');
+    return;
+  }
+  downloadFile(buildIcs(), 'moy-organayzer-' + schedDateKey(new Date()) + '.ics', 'text/calendar;charset=utf-8');
+}
+
+/* общая выгрузка файла — её же использует бэкап */
+function downloadFile(content, filename, type){
+  const blob = new Blob([content], {type});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const stamp = new Date().toISOString().slice(0,10);
   a.href = url;
-  a.download = `moy-organayzer-backup-${stamp}.json`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/* ---- локальный бэкап: экспорт/импорт JSON-файла ---- */
+function exportBackup(){
+  downloadFile(JSON.stringify(DATA, null, 2),
+    `moy-organayzer-backup-${schedDateKey(new Date())}.json`, 'application/json');
 }
 
 function importBackup(file){
