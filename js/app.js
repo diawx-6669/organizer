@@ -1328,6 +1328,171 @@ function summativeRowHtml(item, opts){
     </div>`;
 }
 
+
+/* ============ ГРАФИКИ ПО СУММАТИВКАМ ============ */
+/* Цвета марок проверены валидатором палитры для обоих режимов:
+   тёмный — #2ca79b и #d9534a на #191b21, светлый — #0f9e8f и #d1483a на белом.
+   Одна серия, одна краска: длина полосы и так показывает величину,
+   красный оставлен только под статус «двойка» и всегда идёт с цифрой оценки. */
+
+let chartsAsTable = false;
+function toggleChartsView(){ chartsAsTable = !chartsAsTable; renderSummCharts(); }
+
+function chartPalette(){
+  const light = document.documentElement.getAttribute('data-theme') === 'light';
+  return light
+    ? {mark:'#0f9e8f', critical:'#d1483a', surface:'#ffffff'}
+    : {mark:'#2ca79b', critical:'#d9534a', surface:'#191b21'};
+}
+
+function scoredSummatives(){
+  return DATA.summatives
+    .filter(x => x.score !== null && x.score !== undefined && x.score !== '' && Number(x.maxScore) > 0 && x.due)
+    .map(x => ({
+      date: x.due,
+      subject: x.subject || 'Без предмета',
+      kind: x.kind === 'soch' ? 'СОЧ' : 'СОР',
+      pct: Math.round((Number(x.score)/Number(x.maxScore))*100)
+    }))
+    .sort((a,b) => a.date.localeCompare(b.date));
+}
+
+/* линия: как менялся процент от работы к работе */
+function trendChartSvg(points){
+  const c = chartPalette();
+  const W = 720, H = 240, L = 34, R = 14, T = 14, B = 30;
+  const plotW = W - L - R, plotH = H - T - B;
+  const x = i => points.length === 1 ? L + plotW/2 : L + (plotW * i)/(points.length-1);
+  const y = pct => T + plotH * (1 - pct/100);
+
+  let svg = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img"
+    aria-label="Процент по суммативкам во времени">`;
+
+  // сетка и подписи оси — тонкие, сплошные, не спорят с данными
+  [0,25,50,75,100].forEach(v=>{
+    svg += `<line class="chart-grid" x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}"/>`;
+    svg += `<text class="chart-axis" x="${L-8}" y="${y(v)+3.5}" text-anchor="end">${v}</text>`;
+  });
+
+  const path = points.map((p,i)=> `${i?'L':'M'}${x(i).toFixed(1)} ${y(p.pct).toFixed(1)}`).join(' ');
+  svg += `<path d="${path}" fill="none" stroke="${c.mark}" stroke-width="2"
+    stroke-linejoin="round" stroke-linecap="round"/>`;
+
+  points.forEach((p,i)=>{
+    const crit = p.pct < 40;
+    svg += `<circle class="chart-dot" cx="${x(i).toFixed(1)}" cy="${y(p.pct).toFixed(1)}" r="4.5"
+      fill="${crit ? c.critical : c.mark}" stroke="${c.surface}" stroke-width="2"
+      data-tip="${escapeHtml(p.subject + ' · ' + p.kind + ' · ' + fmtDate(p.date) + ' · ' + p.pct + '%')}"/>`;
+  });
+
+  // подписываем только последнюю точку — значение у каждой превращается в кашу
+  const last = points[points.length-1];
+  svg += `<text class="chart-label" x="${(x(points.length-1)-8).toFixed(1)}" y="${(y(last.pct)-11).toFixed(1)}"
+    text-anchor="end">${last.pct}%</text>`;
+
+  // крайние даты по оси X
+  svg += `<text class="chart-axis" x="${L}" y="${H-9}">${escapeHtml(fmtDate(points[0].date))}</text>`;
+  if(points.length > 1){
+    svg += `<text class="chart-axis" x="${W-R}" y="${H-9}" text-anchor="end">${escapeHtml(fmtDate(last.date))}</text>`;
+  }
+  return svg + '</svg>';
+}
+
+/* полосы: средний процент по предметам, снизу вверх */
+function subjectBarsSvg(rows){
+  const c = chartPalette();
+  const W = 720, rowH = 30, barH = 18, L = 180, R = 46, T = 6;
+  const H = T*2 + rows.length*rowH;
+  const plotW = W - L - R;
+
+  let svg = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img"
+    aria-label="Средний процент по предметам">`;
+  rows.forEach((r,i)=>{
+    const yTop = T + i*rowH + (rowH-barH)/2;
+    const w = Math.max(2, plotW * r.pct/100);
+    const crit = r.grade === 2;
+    svg += `<text class="chart-axis chart-rowname" x="${L-12}" y="${yTop+barH/2+4}" text-anchor="end">${escapeHtml(r.subject)}</text>`;
+    svg += `<rect class="chart-track" x="${L}" y="${yTop}" width="${plotW}" height="${barH}" rx="4"/>`;
+    svg += `<rect class="chart-bar" x="${L}" y="${yTop}" width="${w.toFixed(1)}" height="${barH}" rx="4"
+      fill="${crit ? c.critical : c.mark}"
+      data-tip="${escapeHtml(r.subject + ' · ' + r.pct + '% · оценка ' + r.grade + ' · работ: ' + r.count)}"/>`;
+    svg += `<text class="chart-label" x="${W-R+8}" y="${yTop+barH/2+4}">${r.pct}% · ${r.grade}</text>`;
+  });
+  return svg + '</svg>';
+}
+
+function chartTableHtml(points, rows){
+  const head = '<tr><th>Предмет</th><th>Средний</th><th>Оценка</th><th>Работ</th></tr>';
+  const body = rows.map(r=>`<tr><td>${escapeHtml(r.subject)}</td><td>${r.pct}%</td><td>${r.grade}</td><td>${r.count}</td></tr>`).join('');
+  const head2 = '<tr><th>Дата</th><th>Предмет</th><th>Тип</th><th>Процент</th></tr>';
+  const body2 = points.map(p=>`<tr><td>${escapeHtml(fmtDate(p.date))}</td><td>${escapeHtml(p.subject)}</td><td>${p.kind}</td><td>${p.pct}%</td></tr>`).join('');
+  return `<table class="chart-table">${head}${body}</table>
+          <table class="chart-table">${head2}${body2}</table>`;
+}
+
+function renderSummCharts(){
+  const wrap = document.getElementById('summ-charts');
+  if(!wrap) return;
+
+  const points = scoredSummatives();
+  if(points.length === 0){
+    wrap.innerHTML = '<div class="empty-note">Графики появятся, когда будет хотя бы один балл.</div>';
+    return;
+  }
+
+  const stats = summativeStats();
+  const rows = stats.bySubject.map(s=>({
+    subject: s.subject, pct: s.avg, count: s.count, grade: gradeFromPercent(s.avg)
+  }));
+
+  const toggle = `<button class="chart-toggle" onclick="toggleChartsView()">${chartsAsTable ? 'графиком' : 'таблицей'}</button>`;
+
+  if(chartsAsTable){
+    wrap.innerHTML = `<div class="chart-card"><div class="chart-head">
+      <div><strong>Все баллы</strong><small>те же числа таблицей</small></div>${toggle}</div>
+      ${chartTableHtml(points, rows)}</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="chart-card">
+      <div class="chart-head">
+        <div><strong>Как менялся процент</strong><small>каждая точка — одна суммативка, по порядку дат</small></div>${toggle}
+      </div>
+      ${trendChartSvg(points)}
+    </div>
+    <div class="chart-card">
+      <div class="chart-head">
+        <div><strong>Средний процент по предметам</strong><small>снизу — где слабее всего; красным отмечена двойка</small></div>
+      </div>
+      ${subjectBarsSvg(rows)}
+    </div>`;
+
+  attachChartTips(wrap);
+}
+
+/* подсказка при наведении — у графика в вебе она должна быть по умолчанию */
+function attachChartTips(wrap){
+  let tip = document.getElementById('chart-tip');
+  if(!tip){
+    tip = document.createElement('div');
+    tip.id = 'chart-tip';
+    tip.className = 'chart-tip';
+    document.body.appendChild(tip);
+  }
+  wrap.querySelectorAll('[data-tip]').forEach(el=>{
+    el.addEventListener('mouseenter', ()=>{
+      tip.textContent = el.getAttribute('data-tip');
+      tip.classList.add('open');
+    });
+    el.addEventListener('mousemove', e=>{
+      tip.style.left = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 10) + 'px';
+      tip.style.top  = (e.clientY - tip.offsetHeight - 10) + 'px';
+    });
+    el.addEventListener('mouseleave', ()=> tip.classList.remove('open'));
+  });
+}
+
 let summFilterSubject = 'all';
 function setSummFilter(val){
   summFilterSubject = val;
@@ -1345,6 +1510,7 @@ function renderSummFilterOptions(){
 
 function renderSummatives(){
   renderSummFilterOptions();
+  renderSummCharts();
 
   const statsWrap = document.getElementById('summ-stats');
   if(statsWrap){
@@ -1751,6 +1917,7 @@ function toggleTheme(){
   const next = cur === 'dark' ? 'light' : 'dark';
   localStorage.setItem(THEME_KEY, next);
   applyTheme(next);
+  renderSummCharts();
 }
 applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
 
