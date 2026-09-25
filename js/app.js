@@ -726,7 +726,7 @@ function renderHomework(){
     row.innerHTML = `
       <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}', event)"></div>
       <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
-        <div class="item-meta">${escapeHtml(item.subject||'')}</div></div>
+        <div class="item-meta">${escapeHtml(item.subject||'')}</div>${stepsHtml(item)}</div>
       ${priorityTagHtml(item.priority)}
       ${dueTagHtml(item.due, item.done)}
       <div class="row-actions">
@@ -735,6 +735,30 @@ function renderHomework(){
       </div>`;
     wrap.appendChild(row);
   });
+}
+
+
+/* ---- шаги задания ---- */
+function toggleStep(hwId, index){
+  const item = DATA.homework.find(h=>h.id===hwId);
+  if(!item || !Array.isArray(item.steps) || !item.steps[index]) return;
+  item.steps[index].done = !item.steps[index].done;
+  // все шаги отмечены — считаем задание сделанным
+  const all = item.steps.every(st=>st.done);
+  if(all && !item.done){ item.done = true; logActivity(); }
+  else if(!all && item.done){ item.done = false; }
+  saveData();
+  renderAll();
+}
+
+function stepsHtml(item){
+  if(!Array.isArray(item.steps) || item.steps.length === 0) return '';
+  const done = item.steps.filter(st=>st.done).length;
+  const rows = item.steps.map((st,i)=>
+    `<button class="step${st.done?' done':''}" onclick="event.stopPropagation(); toggleStep('${item.id}', ${i})">` +
+    `<i></i><span>${escapeHtml(st.text)}</span></button>`
+  ).join('');
+  return `<div class="steps"><div class="steps-count">${done} из ${item.steps.length}</div>${rows}</div>`;
 }
 
 function priorityTagHtml(priority){
@@ -822,7 +846,7 @@ function renderSubjects(){
       row.innerHTML = `
         <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}', event); renderSubjects();"></div>
         <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
-          ${item.notes? `<div class="item-meta">${escapeHtml(item.notes)}</div>` : ''}</div>
+          ${item.notes? `<div class="item-meta">${escapeHtml(item.notes)}</div>` : ''}${stepsHtml(item)}</div>
         ${priorityTagHtml(item.priority)}
         ${dueTagHtml(item.due, item.done)}
         <div class="row-actions">
@@ -1121,6 +1145,7 @@ const FIELD_DEFS = {
     {key:'subject', label:'Предмет', type:'text', list:'subjects-datalist'},
     {key:'priority', label:'Приоритет', type:'select', options:[{value:'normal',label:'Обычный'},{value:'high',label:'Высокий'},{value:'low',label:'Низкий'}], default:'normal'},
     {key:'due', label:'Срок сдачи', type:'date'},
+    {key:'steps', label:'Шаги — по одному в строке', type:'steps'},
     {key:'notes', label:'Заметки', type:'textarea'}
   ],
   summatives: [
@@ -1163,6 +1188,10 @@ function openModal(type, id, prefill){
       if(existing){ val = existing[f.key] ?? ''; }
       else if(prefill && prefill[f.key] !== undefined){ val = prefill[f.key]; }
       else { val = f.default !== undefined ? f.default : ''; }
+      if(f.type === 'steps'){
+        const text = Array.isArray(val) ? val.map(st=>st.text).join('\n') : '';
+        return `<div class="field"><label>${f.label}</label><textarea data-key="${f.key}" data-steps="1" rows="3" placeholder="Решить №1&#10;Оформить в тетради">${escapeHtml(text)}</textarea></div>`;
+      }
       if(f.type === 'textarea'){
         return `<div class="field"><label>${f.label}</label><textarea data-key="${f.key}">${escapeHtml(val)}</textarea></div>`;
       }
@@ -1198,7 +1227,14 @@ function submitModal(){
   const obj = editingId ? DATA[editingType].find(x=>x.id===editingId) : {id: uid(), done:false, createdAt: Date.now()};
   inputs.forEach(inp=>{
     let v = inp.value;
-    if(inp.type === 'number') v = Number(v)||0;
+    if(inp.dataset.steps){
+      const was = Array.isArray(obj[inp.dataset.key]) ? obj[inp.dataset.key] : [];
+      v = v.split('\n').map(line=>line.trim()).filter(Boolean).map(text=>{
+        const prev = was.find(st=>st.text === text);
+        return {text, done: prev ? prev.done : false};
+      });
+    }
+    else if(inp.type === 'number') v = Number(v)||0;
     obj[inp.dataset.key] = v;
   });
   if(!obj.title || String(obj.title).trim()===''){ return; }
