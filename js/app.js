@@ -980,6 +980,42 @@ function sortHomework(list){
   });
 }
 
+
+/* ---- массовые действия над отфильтрованной домашкой ---- */
+function currentHomeworkFiltered(){
+  const bySubject = hwFilterSubject === 'all'
+    ? DATA.homework
+    : DATA.homework.filter(h => (h.subject||'') === hwFilterSubject);
+  return bySubject.filter(hwStatusTest(hwStatus));
+}
+
+function bulkMarkDone(){
+  const open = currentHomeworkFiltered().filter(h => !h.done);
+  if(open.length === 0) return;
+  open.forEach(h=>{ h.done = true; });
+  logActivity();
+  saveData();
+  renderAll();
+}
+
+function bulkDeleteDone(){
+  const done = currentHomeworkFiltered().filter(h => h.done);
+  if(done.length === 0) return;
+  deleteMany('homework', done.map(h => h.id));
+}
+
+function renderHwBulk(list){
+  const wrap = document.getElementById('hw-bulk');
+  if(!wrap) return;
+  const open = list.filter(h => !h.done).length;
+  const done = list.filter(h => h.done).length;
+  const parts = [];
+  if(open) parts.push(`<button onclick="bulkMarkDone()">Отметить ${open} сделанными</button>`);
+  if(done) parts.push(`<button onclick="bulkDeleteDone()">Удалить ${done} сделанных</button>`);
+  wrap.innerHTML = parts.join('');
+  wrap.classList.toggle('on', parts.length > 0);
+}
+
 function renderHomework(){
   renderHwFilterOptions();
   const wrap = document.getElementById('list-homework');
@@ -992,6 +1028,7 @@ function renderHomework(){
   renderHwStatusChips(counts);
 
   const filtered = bySubject.filter(hwStatusTest(hwStatus));
+  renderHwBulk(filtered);
   if(filtered.length===0){
     const st = HW_STATUSES.find(x=>x.key===hwStatus);
     wrap.innerHTML = `<div class="empty-note">Ничего не подходит под фильтр «${st?st.label.toLowerCase():hwStatus}».</div>`;
@@ -2115,17 +2152,35 @@ function deleteItem(type, id){
   const item = DATA[type][index];
 
   DATA[type] = DATA[type].filter(x=>x.id!==id);
-  lastDeleted = {type, item, index};
+  lastDeleted = {type, entries: [{item, index}]};
   saveData();
   renderAll();
 
   showUndo('Удалил ' + (TYPE_TITLES_ACC[type]||'запись') + ' «' + (item.title||'без названия') + '»');
 }
 
+/* удаление пачкой — отменяется так же, как одиночное */
+function deleteMany(type, ids){
+  const set = new Set(ids);
+  const entries = [];
+  DATA[type].forEach((item, index)=>{ if(set.has(item.id)) entries.push({item, index}); });
+  if(entries.length === 0) return;
+
+  DATA[type] = DATA[type].filter(x => !set.has(x.id));
+  lastDeleted = {type, entries};
+  saveData();
+  renderAll();
+
+  showUndo('Удалил ' + entries.length + ' ' + plural(entries.length,'запись','записи','записей'));
+}
+
 function undoDelete(){
   if(!lastDeleted) return;
-  const {type, item, index} = lastDeleted;
-  DATA[type].splice(Math.min(index, DATA[type].length), 0, item);  // возвращаем на своё место
+  const {type, entries} = lastDeleted;
+  // вставляем с начала, чтобы индексы следующих не съезжали
+  [...entries].sort((a,b)=>a.index-b.index).forEach(({item, index})=>{
+    DATA[type].splice(Math.min(index, DATA[type].length), 0, item);
+  });
   lastDeleted = null;
   hideUndo();
   saveData();
