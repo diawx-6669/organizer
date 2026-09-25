@@ -2434,19 +2434,50 @@ launchIntro();
 
 /* ============ THEME ============ */
 const THEME_KEY = 'organizer-theme';
-function applyTheme(theme){
-  document.documentElement.setAttribute('data-theme', theme);
-  const btn = document.getElementById('theme-toggle');
-  if(btn) btn.textContent = theme === 'light' ? 'тёмная тема' : 'светлая тема';
+const THEME_ORDER = ['dark','light','auto'];
+const THEME_LABELS = {dark:'тёмная тема', light:'светлая тема', auto:'как в системе'};
+
+const systemDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+function storedTheme(){
+  const v = localStorage.getItem(THEME_KEY);
+  return THEME_ORDER.includes(v) ? v : 'dark';
 }
+
+/* «auto» — не отдельная тема, а выбор системной: подставляем ту, что сейчас в ОС */
+function resolveTheme(theme){
+  if(theme !== 'auto') return theme;
+  return (systemDark && systemDark.matches) ? 'dark' : 'light';
+}
+
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', resolveTheme(theme));
+  const btn = document.getElementById('theme-toggle');
+  if(btn){
+    const next = THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
+    btn.textContent = THEME_LABELS[next];
+    const hint = theme === 'auto'
+      ? ' (сейчас ' + (resolveTheme(theme) === 'dark' ? 'тёмная' : 'светлая') + ')'
+      : '';
+    btn.title = 'Тема: ' + THEME_LABELS[theme] + hint + '. Нажми, чтобы переключить.';
+  }
+}
+
 function toggleTheme(){
-  const cur = localStorage.getItem(THEME_KEY) || 'dark';
-  const next = cur === 'dark' ? 'light' : 'dark';
+  const next = THEME_ORDER[(THEME_ORDER.indexOf(storedTheme()) + 1) % THEME_ORDER.length];
   localStorage.setItem(THEME_KEY, next);
   applyTheme(next);
   renderSummCharts();
 }
-applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+
+/* если выбрано «как в системе», реагируем на переключение тёмного режима в ОС */
+if(systemDark && systemDark.addEventListener){
+  systemDark.addEventListener('change', ()=>{
+    if(storedTheme() === 'auto'){ applyTheme('auto'); renderSummCharts(); }
+  });
+}
+
+applyTheme(storedTheme());
 
 /* ============ COMMAND PALETTE ============ */
 const PALETTE_TYPE_LABELS = {
