@@ -1114,6 +1114,10 @@ function renderSubjects(){
   head.appendChild(addBtn);
   detail.appendChild(head);
 
+  const fc = document.createElement('div');
+  fc.innerHTML = forecastHtml(selectedSubject);
+  detail.appendChild(fc);
+
   const body = document.createElement('div');
   body.className = 'ledger';
   if(items.length === 0){
@@ -1207,6 +1211,73 @@ function renderGoals(){
       <div class="goal-pct">${pct}%</div>`;
     wrap.appendChild(card);
   });
+}
+
+
+/* ============ ПРОГНОЗ ЧЕТВЕРТНОЙ ОЦЕНКИ ============ */
+/* Считаем по обычной схеме: СОР — половина итога, СОЧ — вторая половина.
+   В разных школах вес может отличаться, поэтому это именно прогноз. */
+
+const SOR_WEIGHT = 0.5;
+const SOCH_WEIGHT = 0.5;
+
+function gradeFromPercent(pct){
+  if(pct >= 85) return 5;
+  if(pct >= 65) return 4;
+  if(pct >= 40) return 3;
+  return 2;
+}
+
+function sumScored(list){
+  const scored = list.filter(x => x.score !== null && x.score !== undefined && x.score !== '' && Number(x.maxScore) > 0);
+  if(!scored.length) return null;
+  const got = scored.reduce((a,x)=> a + Number(x.score), 0);
+  const max = scored.reduce((a,x)=> a + Number(x.maxScore), 0);
+  return {got, max, pct: (got/max)*100, count: scored.length};
+}
+
+function forecastForSubject(subject){
+  const all = DATA.summatives.filter(x => x.subject === subject);
+  const sor  = sumScored(all.filter(x => x.kind !== 'soch'));
+  const soch = sumScored(all.filter(x => x.kind === 'soch'));
+  if(!sor && !soch) return null;
+
+  let pct, basis;
+  if(sor && soch){
+    pct = sor.pct * SOR_WEIGHT + soch.pct * SOCH_WEIGHT;
+    basis = 'СОР и СОЧ';
+  } else if(sor){
+    pct = sor.pct;                       // считаем, что СОЧ будет написан так же
+    basis = 'только СОР, СОЧ ещё нет';
+  } else {
+    pct = soch.pct;
+    basis = 'только СОЧ, СОР ещё нет';
+  }
+
+  const pending = all.filter(x => x.score === null || x.score === undefined || x.score === '').length;
+  return {pct: Math.round(pct), grade: gradeFromPercent(pct), sor, soch, basis, pending};
+}
+
+function forecastHtml(subject){
+  const f = forecastForSubject(subject);
+  if(!f){
+    return '<div class="forecast empty">Прогноза пока нет — впиши баллы хотя бы за одну суммативку.</div>';
+  }
+  const rows = [];
+  if(f.sor)  rows.push(`<span>СОР <b>${f.sor.got}/${f.sor.max}</b> (${Math.round(f.sor.pct)}%)</span>`);
+  if(f.soch) rows.push(`<span>СОЧ <b>${f.soch.got}/${f.soch.max}</b> (${Math.round(f.soch.pct)}%)</span>`);
+  if(f.pending) rows.push(`<span>без балла: <b>${f.pending}</b></span>`);
+
+  return `<div class="forecast grade-${f.grade}">
+    <div class="forecast-main">
+      <div class="forecast-grade">${f.grade}</div>
+      <div>
+        <div class="forecast-pct">${f.pct}%</div>
+        <div class="forecast-basis">прогноз по: ${escapeHtml(f.basis)}</div>
+      </div>
+    </div>
+    <div class="forecast-rows">${rows.join('')}</div>
+  </div>`;
 }
 
 /* ============ SUMMATIVES (СОР/СОЧ) ============ */
