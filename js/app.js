@@ -100,10 +100,23 @@ function schedGetMonday(d){
 function schedDateKey(d){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+/* Чередование А/Б вычислено по скриншотам школьного расписания.
+   Если школа сдвинет неделю (каникулы, перенос), флажок это правит. */
+function schedFlipped(){
+  return !!DATA.schedFlip;
+}
+
 function schedPatternFor(monday){
   const diffDays = Math.round((monday - SCHED_ANCHOR_MONDAY)/(1000*60*60*24));
   const diffWeeks = Math.round(diffDays/7);
-  return (((diffWeeks%2)+2)%2===0) ? 'A' : 'B';
+  const even = ((diffWeeks % 2) + 2) % 2 === 0;
+  return (even !== schedFlipped()) ? 'A' : 'B';
+}
+
+function toggleSchedFlip(){
+  DATA.schedFlip = !DATA.schedFlip;
+  saveData();
+  renderAll();
 }
 
 let scheduleWeekMonday = schedGetMonday(new Date());
@@ -133,7 +146,9 @@ function renderSchedule(){
 
   const first = days[0].date, last = days[4].date;
   const fmt = d => d.getDate()+' '+MONTHS[d.getMonth()].slice(0,3);
-  rangeEl.textContent = fmt(first)+' — '+fmt(last);
+  rangeEl.innerHTML = escapeHtml(fmt(first)+' — '+fmt(last)) +
+    `<button class="sched-week-tag" onclick="toggleSchedFlip()"
+      title="Если неделя не та, нажми — чередование А и Б сдвинется на одну">неделя ${pattern}</button>`;
 
   const today = schedDateKey(new Date());
 
@@ -521,7 +536,7 @@ const DATA_SETS = ['extraSubjects','hiddenSubjects'];
 
 function emptyData(){
   return {lessons:[], homework:[], events:[], goals:[], summatives:[], notes:[],
-          activityLog:{}, extraSubjects:[], hiddenSubjects:[]};
+          activityLog:{}, extraSubjects:[], hiddenSubjects:[], schedFlip:false};
 }
 
 function normalizeData(raw){

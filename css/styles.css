@@ -1798,3 +1798,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 
 @media print{ .bottom-nav{ display:none !important; } }
+
+/* ============ ПЕРЕКЛЮЧАТЕЛЬ НЕДЕЛИ А/Б ============ */
+.sched-week-tag{
+  margin-left:10px;
+  padding:3px 10px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background: var(--surface-2);
+  color: var(--text-faint);
+  font-size:10px; font-family:inherit; letter-spacing:.04em;
+  cursor:pointer; vertical-align:middle;
+}
+.sched-week-tag:hover{ color: var(--gold); border-color: var(--gold-soft); }
