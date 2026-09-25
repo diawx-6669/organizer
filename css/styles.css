@@ -1413,3 +1413,32 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   transform: rotate(45deg);
 }
 .step.done span{ color: var(--text-faint); text-decoration: line-through; }
+
+/* ============ БЫСТРЫЙ ВВОД ============ */
+.quick-task{ display:flex; gap:8px; margin: 0 0 6px; }
+.quick-task input{
+  flex:1; min-width:0;
+  padding:11px 14px;
+  border:1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size:13px;
+}
+.quick-task input::placeholder{ color: var(--text-faint); }
+.quick-task input:focus{ border-color: var(--gold-soft); outline:none; }
+.quick-task button{
+  padding:0 18px;
+  border:1px solid var(--gold-soft);
+  border-radius: var(--radius-sm);
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-size:12px; font-weight:600;
+  cursor:pointer; white-space:nowrap;
+}
+.quick-task button:hover{ background: rgba(79,209,197,.2); }
+.quick-task-hint{
+  font-size:11px; color: var(--text-faint);
+  margin: 0 2px 14px; min-height:14px;
+}
+.quick-task-hint.ready{ color: var(--gold); }

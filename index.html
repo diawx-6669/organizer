@@ -176,6 +176,13 @@
         <div><h2>Домашка</h2><p class="section-hint">Что задали и на какое число.</p></div>
         <button class="add-btn" onclick="openModal('homework')">+ добавить задание</button>
       </div>
+      <div class="quick-task">
+        <input id="quick-task-input" type="text" autocomplete="off"
+               placeholder="матем параграф 12 пт !">
+        <button onclick="submitQuickTask()">Добавить</button>
+      </div>
+      <div class="quick-task-hint" id="quick-task-hint"></div>
+
       <div class="hw-filter-row">
         <label for="hw-subject-filter">Предмет:</label>
         <select id="hw-subject-filter" onchange="setHwFilter(this.value)"></select>
