@@ -645,21 +645,81 @@ function renderLessons(){
   });
 }
 
+/* ---- фильтр по статусу и сортировка ---- */
+const HW_STATUSES = [
+  {key:'active',  label:'Активные',    test: h => !h.done},
+  {key:'overdue', label:'Просроченные',test: h => !h.done && h.due && daysUntil(h.due) < 0},
+  {key:'today',   label:'На сегодня',  test: h => !h.done && h.due && daysUntil(h.due) === 0},
+  {key:'week',    label:'На неделю',   test: h => !h.done && h.due && daysUntil(h.due) >= 0 && daysUntil(h.due) <= 7},
+  {key:'done',    label:'Сделанные',   test: h => h.done},
+  {key:'all',     label:'Все',         test: () => true}
+];
+
+let hwStatus = 'active';
+let hwSort = 'due';
+
+function setHwStatus(key){ hwStatus = key; renderHomework(); }
+function setHwSort(val){ hwSort = val; renderHomework(); }
+
+function hwStatusTest(key){
+  const st = HW_STATUSES.find(s=>s.key===key);
+  return st ? st.test : (()=>true);
+}
+
+function renderHwStatusChips(counts){
+  const wrap = document.getElementById('hw-status-chips');
+  if(!wrap) return;
+  wrap.innerHTML = HW_STATUSES.map(st=>
+    `<button class="status-chip${st.key===hwStatus?' active':''}" onclick="setHwStatus('${st.key}')">` +
+    `${st.label}<span>${counts[st.key]}</span></button>`
+  ).join('');
+}
+
+const HW_PRIORITY_RANK = {high:0, normal:1, low:2};
+
+function sortHomework(list){
+  const byDue = (a,b)=>{
+    if(!a.due && !b.due) return 0;
+    if(!a.due) return 1;
+    if(!b.due) return -1;
+    return a.due.localeCompare(b.due);
+  };
+  const sorters = {
+    due: byDue,
+    priority: (a,b)=>{
+      const d = (HW_PRIORITY_RANK[a.priority]??1) - (HW_PRIORITY_RANK[b.priority]??1);
+      return d !== 0 ? d : byDue(a,b);
+    },
+    subject: (a,b)=>{
+      const d = (a.subject||'я').localeCompare(b.subject||'я','ru');
+      return d !== 0 ? d : byDue(a,b);
+    },
+    added: (a,b)=> (b.createdAt||0) - (a.createdAt||0)
+  };
+  return [...list].sort((a,b)=>{
+    if(a.done !== b.done) return a.done ? 1 : -1;   // сделанное всегда внизу
+    return (sorters[hwSort] || byDue)(a,b);
+  });
+}
+
 function renderHomework(){
   renderHwFilterOptions();
   const wrap = document.getElementById('list-homework');
   wrap.innerHTML = '';
-  const filtered = hwFilterSubject === 'all' ? DATA.homework : DATA.homework.filter(h => (h.subject||'') === hwFilterSubject);
+
+  const bySubject = hwFilterSubject === 'all' ? DATA.homework : DATA.homework.filter(h => (h.subject||'') === hwFilterSubject);
+
+  const counts = {};
+  HW_STATUSES.forEach(st => counts[st.key] = bySubject.filter(st.test).length);
+  renderHwStatusChips(counts);
+
+  const filtered = bySubject.filter(hwStatusTest(hwStatus));
   if(filtered.length===0){
-    wrap.innerHTML = hwFilterSubject === 'all'
-      ? '<div class="empty-note">Домашки нет.</div>'
-      : '<div class="empty-note">По этому предмету ничего не записано.</div>';
+    const st = HW_STATUSES.find(x=>x.key===hwStatus);
+    wrap.innerHTML = `<div class="empty-note">Ничего не подходит под фильтр «${st?st.label.toLowerCase():hwStatus}».</div>`;
     return;
   }
-  const sorted = [...filtered].sort((a,b)=>{
-    if(a.done !== b.done) return a.done ? 1 : -1;
-    return new Date(a.due||0) - new Date(b.due||0);
-  });
+  const sorted = sortHomework(filtered);
   sorted.forEach(item=>{
     const row = document.createElement('div');
     row.className = 'item-row';
