@@ -1751,3 +1751,46 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .day-lesson span{ font-size:10.5px; color:var(--text-faint); font-variant-numeric: tabular-nums; }
 .day-lesson b{ font-weight:500; color:var(--text); }
 .day-lesson em{ font-style:normal; font-size:10px; color:var(--text-faint); }
+
+/* ============ НИЖНЯЯ ПАНЕЛЬ (телефон) ============ */
+.bottom-nav{ display:none; }
+
+@media (max-width: 760px){
+  .bottom-nav{
+    display:flex;
+    position:fixed; left:0; right:0; bottom:0; z-index:60;
+    background: var(--surface);
+    border-top:1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .bottom-nav button{
+    position:relative;
+    flex:1; min-width:0;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:8px 2px 7px;
+    border:none; background:none; cursor:pointer;
+    color: var(--text-faint);
+    font-size:9.5px; line-height:1.2;
+  }
+  .bottom-nav button span{
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .bottom-nav button .ui-icon{ width:19px; height:19px; }
+  .bottom-nav button.active{ color: var(--gold); }
+  .bottom-badge{
+    position:absolute; top:4px; left:calc(50% + 7px);
+    min-width:15px; height:15px; padding:0 4px;
+    display:none; place-items:center;
+    border-radius:10px;
+    background: var(--tab1); color:#0b0c0f;
+    font-size:9px; font-weight:700; font-style:normal;
+  }
+  .bottom-badge.on{ display:grid; }
+
+  /* контент не должен прятаться за панелью */
+  .main{ padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important; }
+  .pomodoro{ bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+  .undo-bar{ bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+}
+
+@media print{ .bottom-nav{ display:none !important; } }

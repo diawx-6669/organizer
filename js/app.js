@@ -621,8 +621,30 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.view === 'calendar') renderCalendar();
     if(btn.dataset.view === 'schedule') renderSchedule();
     closeMobileNav();
+    syncBottomNav();
   });
 });
+
+
+/* ---- нижняя панель на телефоне ---- */
+function syncBottomNav(){
+  const active = document.querySelector('.view.active');
+  const current = active ? active.id.replace('view-','') : '';
+  document.querySelectorAll('.bottom-nav button[data-view]').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.view === current);
+  });
+  const hw = DATA.homework.filter(h=>!h.done).length;
+  const sm = DATA.summatives.filter(x=>!x.done).length;
+  setBottomBadge('bn-homework', hw);
+  setBottomBadge('bn-summatives', sm);
+}
+
+function setBottomBadge(id, count){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = count > 99 ? '99+' : count;
+  el.classList.toggle('on', count > 0);
+}
 
 /* ============ MOBILE NAV DRAWER ============ */
 function openMobileNav(){
@@ -1952,6 +1974,7 @@ function renderAll(){
   renderNotes();
   renderCounts();
   renderCalendar();
+  syncBottomNav();
 }
 
 /* ============ CRUD ============ */
