@@ -1442,3 +1442,30 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   margin: 0 2px 14px; min-height:14px;
 }
 .quick-task-hint.ready{ color: var(--gold); }
+
+/* ============ ПРОГНОЗ ОЦЕНКИ ============ */
+.forecast{
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;
+  border:1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding:14px 16px;
+  margin: 0 0 16px;
+}
+.forecast.empty{ color: var(--text-faint); font-size:12px; }
+.forecast-main{ display:flex; align-items:center; gap:14px; }
+.forecast-grade{
+  width:46px; height:46px; flex-shrink:0;
+  display:grid; place-items:center;
+  border-radius: 14px;
+  font-family:'Space Grotesk'; font-size:23px; font-weight:700;
+  background: var(--gold-soft); color: var(--gold);
+}
+.forecast.grade-5 .forecast-grade{ background: rgba(127,227,171,.16); color: var(--sage); }
+.forecast.grade-4 .forecast-grade{ background: var(--gold-soft); color: var(--gold); }
+.forecast.grade-3 .forecast-grade{ background: rgba(240,168,96,.16); color: var(--tab1); }
+.forecast.grade-2 .forecast-grade{ background: var(--brick-soft); color: var(--brick); }
+.forecast-pct{ font-family:'Space Grotesk'; font-size:16px; font-weight:600; }
+.forecast-basis{ font-size:10.5px; color: var(--text-faint); margin-top:2px; }
+.forecast-rows{ display:flex; flex-wrap:wrap; gap:14px; font-size:11.5px; color:var(--text-dim); }
+.forecast-rows b{ color: var(--text); font-weight:600; }
