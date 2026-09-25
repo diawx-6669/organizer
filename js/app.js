@@ -360,11 +360,7 @@ async function loadData(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw){
-      const parsed = JSON.parse(raw);
-      DATA = Object.assign({lessons:[],homework:[],events:[],goals:[],summatives:[],notes:[],activityLog:[]}, parsed);
-      if(!Array.isArray(DATA.summatives)) DATA.summatives = [];
-      if(!Array.isArray(DATA.notes)) DATA.notes = [];
-      migrateActivityLog();
+      DATA = normalizeData(JSON.parse(raw));
     }
   }catch(e){
     console.log('Сохранённых данных нет, начинаем с пустого', e);
@@ -517,25 +513,94 @@ function exportBackup(){
     `moy-organayzer-backup-${schedDateKey(new Date())}.json`, 'application/json');
 }
 
+const DATA_LISTS = ['lessons','homework','events','goals','summatives','notes'];
+
+function emptyData(){
+  return {lessons:[], homework:[], events:[], goals:[], summatives:[], notes:[], activityLog:{}};
+}
+
+function normalizeData(raw){
+  const data = Object.assign(emptyData(), raw);
+  DATA_LISTS.forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
+  return data;
+}
+
+/* Импорт больше не затирает всё молча: сначала показываем, что в файле,
+   и спрашиваем — заменить или добавить к тому, что уже есть. */
 function importBackup(file){
   const reader = new FileReader();
   reader.onload = () => {
+    let incoming;
     try{
-      const parsed = JSON.parse(reader.result);
-      DATA = Object.assign({lessons:[],homework:[],events:[],goals:[],summatives:[],notes:[],activityLog:[]}, parsed);
-      if(!Array.isArray(DATA.summatives)) DATA.summatives = [];
-      if(!Array.isArray(DATA.notes)) DATA.notes = [];
-      migrateActivityLog();
-      migrateActivityLog();
-      migrateLegacySummatives();
-      saveData();
-      renderAll();
-      if(document.querySelector('.tab-btn[data-view="calendar"]').classList.contains('active')) renderCalendar();
+      incoming = normalizeData(JSON.parse(reader.result));
     }catch(e){
       alert('Не получилось прочитать файл копии: ' + e.message);
+      return;
     }
+    askImportMode(incoming);
   };
   reader.readAsText(file);
+}
+
+function countRows(data){
+  return DATA_LISTS.reduce((sum,k)=> sum + data[k].length, 0);
+}
+
+let pendingImport = null;
+
+function askImportMode(incoming){
+  pendingImport = incoming;
+  const rows = DATA_LISTS
+    .map(k => ({k, n: incoming[k].length}))
+    .filter(x => x.n > 0)
+    .map(x => `<div class="import-row"><span>${IMPORT_LABELS[x.k]}</span><b>${x.n}</b></div>`)
+    .join('') || '<div class="import-row"><span>Записей нет</span><b>0</b></div>';
+
+  const box = document.getElementById('modal-box');
+  box.innerHTML = `<h3>Что в файле</h3>
+    <div class="import-list">${rows}</div>
+    <p class="import-note">Сейчас у тебя ${countRows(DATA)} ${plural(countRows(DATA),'запись','записи','записей')}.
+      «Добавить» оставит их на месте и дольёт недостающее, «Заменить» сотрёт и поставит то, что в файле.</p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Отмена</button>
+      <button class="btn-secondary" onclick="applyImport('replace')">Заменить</button>
+      <button class="btn-primary" onclick="applyImport('merge')">Добавить</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+
+const IMPORT_LABELS = {
+  lessons:'Уроки', homework:'Домашка', events:'Мероприятия',
+  goals:'Цели', summatives:'Суммативки', notes:'Заметки'
+};
+
+function applyImport(mode){
+  if(!pendingImport) return;
+  const incoming = pendingImport;
+  pendingImport = null;
+
+  if(mode === 'replace'){
+    DATA = incoming;
+  } else {
+    DATA_LISTS.forEach(key=>{
+      const seen = new Set(DATA[key].map(x => x.id));
+      incoming[key].forEach(item=>{
+        if(seen.has(item.id)) return;           // тот же самый — пропускаем
+        seen.add(item.id);
+        DATA[key].push(item);
+      });
+    });
+    // активность складываем по дням, берём большее
+    Object.entries(incoming.activityLog || {}).forEach(([day, n])=>{
+      DATA.activityLog[day] = Math.max(DATA.activityLog[day] || 0, n);
+    });
+  }
+
+  migrateActivityLog();
+  migrateLegacySummatives();
+  saveData();
+  renderAll();
+  closeModal();
 }
 
 /* ============ NAV ============ */
