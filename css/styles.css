@@ -1686,3 +1686,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 .pin-btn.on{ color: var(--gold); }
 .pin-btn.on .ui-icon{ fill: var(--gold-soft); }
+
+.item-link{ color: var(--gold); text-decoration:none; border-bottom:1px solid var(--gold-soft); }
+.item-link:hover{ border-bottom-color: var(--gold); }
