@@ -1619,3 +1619,50 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   --heat-3: #3aa99b;
   --heat-4: #0f8074;
 }
+
+/* ============ ПЕЧАТЬ ============ */
+@media print{
+  html, body{
+    height:auto; overflow:visible;
+    background:#fff !important; color:#000 !important;
+  }
+  .app{ display:block; height:auto; width:auto; }
+  .main{ overflow:visible; padding:0 !important; }
+
+  /* всё, что на бумаге не нужно */
+  .tabs, .mobile-topbar, .nav-scrim, .intro-splash, .pomodoro,
+  .undo-bar, .chart-tip, .overlay, .palette-overlay,
+  .add-btn, .quick-task, .quick-task-hint, .status-chips,
+  .hw-filter-row, .sched-arrow, .sched-today, .quick-actions,
+  .row-actions, .chart-toggle, .section-hint{ display:none !important; }
+
+  /* печатаем только открытый раздел */
+  .view{ display:none !important; }
+  .view.active{ display:block !important; }
+
+  .sched-grid-wrap, .cal-grid-wrap{ overflow:visible !important; }
+  .sched-grid{ min-width:0 !important; width:100% !important; }
+  .sched-cell, .sched-head, .sched-time, .sched-corner{
+    border-color:#bbb !important;
+    background:#fff !important;
+    color:#000 !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .sched-cell{ break-inside: avoid; }
+  .sched-subj, .sched-room, .sched-tag,
+  .sched-head-day, .sched-head-date, .sched-time,
+  .sched-range{ color:#000 !important; }
+  .sched-room{ color:#555 !important; }
+  .sched-tag.sor{ font-weight:700; }
+  .sched-cell.homeroom{ opacity:1; color:#555 !important; }
+
+  h1, h2, h3{ color:#000 !important; }
+  .item-row, .goal-card, .chart-card, .today-lessons,
+  .activity-heatmap, .forecast{
+    border-color:#bbb !important; background:#fff !important;
+    break-inside: avoid;
+  }
+  .item-title, .item-meta, .tag, .chart-label, .chart-axis{ color:#000 !important; }
+
+  @page{ margin: 12mm; size: A4 landscape; }
+}
