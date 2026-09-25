@@ -1364,3 +1364,28 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .due-tag i{ font-style:normal; font-size:9px; opacity:.75; letter-spacing:.01em; }
 .due-tag.due-today{ color:var(--tab1); border-color:rgba(240,168,96,.45); background:rgba(240,168,96,.12); font-weight:600; }
 .due-tag.due-soon{ color:var(--tab1); border-color:rgba(240,168,96,.28); }
+
+/* ============ ЧИПЫ СТАТУСА ============ */
+.status-chips{ display:flex; flex-wrap:wrap; gap:7px; margin: 0 0 14px; }
+.status-chip{
+  display:inline-flex; align-items:center; gap:7px;
+  padding:6px 11px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size:11.5px;
+  cursor:pointer;
+  transition: color .12s ease, border-color .12s ease, background .12s ease;
+}
+.status-chip:hover{ color:var(--text); border-color:var(--line-strong); }
+.status-chip span{
+  font-size:10px; color:var(--text-faint);
+  background: var(--surface-3);
+  padding:1px 6px; border-radius:20px;
+  font-variant-numeric: tabular-nums;
+}
+.status-chip.active{
+  color: var(--gold); border-color: var(--gold-soft); background: var(--gold-soft); font-weight:600;
+}
+.status-chip.active span{ background: rgba(79,209,197,.18); color: var(--gold); }

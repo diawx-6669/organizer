@@ -179,7 +179,15 @@
       <div class="hw-filter-row">
         <label for="hw-subject-filter">Предмет:</label>
         <select id="hw-subject-filter" onchange="setHwFilter(this.value)"></select>
+        <label for="hw-sort">Сортировка:</label>
+        <select id="hw-sort" onchange="setHwSort(this.value)">
+          <option value="due">По сроку</option>
+          <option value="priority">По приоритету</option>
+          <option value="subject">По предмету</option>
+          <option value="added">По дате добавления</option>
+        </select>
       </div>
+      <div class="status-chips" id="hw-status-chips"></div>
       <div class="ledger" id="list-homework"></div>
     </section>
 
