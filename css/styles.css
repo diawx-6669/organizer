@@ -1318,3 +1318,43 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   stroke-linejoin:round;
 }
 .search-trigger .ui-icon{ width:14px; height:14px; vertical-align:-2px; }
+
+/* ============ УРОКИ НА СЕГОДНЯ ============ */
+.today-lessons{
+  border:1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+.today-lessons-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:12px; }
+.today-lessons-head span{
+  font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold);
+}
+.today-lessons-head strong{ font-family:'Space Grotesk'; font-size:14px; font-weight:600; }
+.today-row{
+  display:grid;
+  grid-template-columns: 46px 1fr auto auto;
+  align-items:center; gap:10px;
+  padding:7px 10px;
+  border-radius: var(--radius-sm);
+  font-size:12.5px;
+}
+.today-row + .today-row{ margin-top:2px; }
+.today-row.past{ opacity:.42; }
+.today-row.now{ background: var(--gold-soft); box-shadow: inset 2px 0 0 var(--gold); }
+.today-time{ font-size:11px; color:var(--text-faint); font-variant-numeric: tabular-nums; }
+.today-row.now .today-time{ color: var(--gold); }
+.today-subject{ color: var(--text); }
+.today-room{ font-size:10.5px; color: var(--text-faint); }
+.today-marks{ display:flex; gap:5px; }
+.today-mark{
+  font-size:9.5px; padding:2px 7px; border-radius:20px;
+  border:1px solid var(--line); color:var(--text-dim);
+}
+.today-mark.sor{ color:var(--brick); border-color:rgba(242,112,92,.4); background:var(--brick-soft); }
+
+@media (max-width: 760px){
+  .today-row{ grid-template-columns: 42px 1fr auto; }
+  .today-room{ display:none; }
+}

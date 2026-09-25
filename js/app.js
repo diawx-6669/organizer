@@ -200,6 +200,40 @@ function renderSchedule(){
   });
 }
 
+
+/* ---- уроки на конкретную дату ---- */
+const SCHED_SLOT_MINUTES = 40;
+
+function schedLessonsOn(date){
+  const key = SCHED_DAY_KEYS[(date.getDay()+6)%7];
+  if(!key) return [];                       // суббота и воскресенье
+  const pattern = schedPatternFor(schedGetMonday(date));
+  return SCHED_DATA[pattern][key].map((subj, idx)=>({
+    slot: idx,
+    time: SCHED_TIMES[idx],
+    subject: SCHED_RUS[subj] || subj,
+    room: SCHED_ROOMS[subj] || '',
+    isHomeroom: subj === 'Homeroom'
+  }));
+}
+
+function slotMinutes(time){
+  const [h,m] = time.split(':').map(Number);
+  return h*60 + m;
+}
+
+/* какой урок идёт прямо сейчас и какой следующий */
+function schedNowInfo(lessons, now){
+  const mins = now.getHours()*60 + now.getMinutes();
+  let current = null, next = null;
+  lessons.forEach(l=>{
+    const from = slotMinutes(l.time), to = from + SCHED_SLOT_MINUTES;
+    if(mins >= from && mins < to) current = {...l, leftMin: to - mins};
+    else if(mins < from && !next) next = {...l, inMin: from - mins};
+  });
+  return {current, next};
+}
+
 function hexToRgba(hex, alpha){
   const h = hex.replace('#','');
   const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
@@ -468,7 +502,47 @@ function renderDashboard(){
     });
   }
 
+  renderTodayLessons();
   renderOrbit();
+}
+
+
+/* ---- блок "уроки на сегодня" ---- */
+function renderTodayLessons(){
+  const wrap = document.getElementById('today-lessons');
+  if(!wrap) return;
+  const now = new Date();
+  const lessons = schedLessonsOn(now).filter(l=>!l.isHomeroom);
+
+  if(lessons.length === 0){
+    wrap.innerHTML = '<div class="today-lessons-head"><span>сегодня</span><strong>Уроков нет</strong></div>' +
+      '<div class="empty-note">Выходной — по расписанию сегодня ничего нет.</div>';
+    return;
+  }
+
+  const {current, next} = schedNowInfo(lessons, now);
+  let status = 'Уроки на сегодня';
+  if(current) status = 'Сейчас: ' + current.subject + ', осталось ' + current.leftMin + ' мин';
+  else if(next) status = 'Следующий: ' + next.subject + ' через ' + next.inMin + ' мин';
+  else status = 'Уроки на сегодня закончились';
+
+  const dateStr = schedDateKey(now);
+  const rows = lessons.map(l=>{
+    const hw = DATA.homework.filter(h => h.subject === l.subject && h.due === dateStr && !h.done).length;
+    const sor = DATA.summatives.filter(x => x.subject === l.subject && x.due === dateStr).length;
+    const marks = [];
+    if(sor) marks.push('<span class="today-mark sor">СОР</span>');
+    if(hw)  marks.push('<span class="today-mark">домашка ' + hw + '</span>');
+    const isNow = current && current.slot === l.slot;
+    const past = !isNow && slotMinutes(l.time) + SCHED_SLOT_MINUTES <= now.getHours()*60 + now.getMinutes();
+    return '<div class="today-row' + (isNow?' now':'') + (past?' past':'') + '">' +
+      '<span class="today-time">' + l.time + '</span>' +
+      '<span class="today-subject">' + escapeHtml(l.subject) + '</span>' +
+      '<span class="today-room">' + escapeHtml(l.room) + '</span>' +
+      '<span class="today-marks">' + marks.join('') + '</span></div>';
+  }).join('');
+
+  wrap.innerHTML = '<div class="today-lessons-head"><span>сегодня</span><strong>' + escapeHtml(status) + '</strong></div>' + rows;
 }
 
 function renderOrbit(){
@@ -1363,3 +1437,6 @@ function pomodoroNotifyDone(){
   document.getElementById('pomodoro').classList.add('open');
 }
 pomodoroRender();
+
+/* статус текущего урока обновляем раз в минуту */
+setInterval(renderTodayLessons, 60*1000);
