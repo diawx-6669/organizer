@@ -1290,6 +1290,25 @@ function renderSubjects(){
   detail.appendChild(summBody);
 }
 
+
+/* Ссылку из формы вставляем в href только если это http, https или mailto —
+   иначе туда можно было бы записать javascript: и получить выполнение кода. */
+function safeUrl(raw){
+  const value = String(raw||'').trim();
+  if(!value) return null;
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : 'https://' + value;
+  let url;
+  try{ url = new URL(withScheme); }catch(e){ return null; }
+  return ['http:','https:','mailto:'].includes(url.protocol) ? url.href : null;
+}
+
+function linkHtml(raw, label){
+  const href = safeUrl(raw);
+  if(!href) return '';
+  return `<a class="item-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
+    onclick="event.stopPropagation()">${escapeHtml(label || 'открыть')}</a>`;
+}
+
 function renderEvents(){
   const wrap = document.getElementById('list-events');
   wrap.innerHTML = '';
@@ -1301,7 +1320,7 @@ function renderEvents(){
     row.innerHTML = `
       <span></span>
       <div class="item-main"><div class="item-title">${escapeHtml(item.title)}</div>
-        <div class="item-meta">${escapeHtml(item.type||'')}${item.link? ' · ссылка сохранена':''}</div></div>
+        <div class="item-meta">${escapeHtml(item.type||'')}${item.link? ' · ' + linkHtml(item.link) : ''}</div></div>
       ${dueTagHtml(item.date, false)}
       <div class="row-actions">
         <button class="icon-btn" aria-label="Изменить" onclick="openModal('events','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
@@ -2062,7 +2081,7 @@ function showDayPanel(dateObj){
   ev.forEach(item=>{
     const row = document.createElement('div');
     row.className = 'item-row';
-    row.innerHTML = `<span></span><div class="item-main"><div class="item-title">${escapeHtml(item.title)}</div><div class="item-meta">${escapeHtml(item.type||'мероприятие')}</div></div>
+    row.innerHTML = `<span></span><div class="item-main"><div class="item-title">${escapeHtml(item.title)}</div><div class="item-meta">${escapeHtml(item.type||'мероприятие')}${item.link? ' · ' + linkHtml(item.link) : ''}</div></div>
       <span class="tag">событие</span><span></span>`;
     listEl.appendChild(row);
   });
