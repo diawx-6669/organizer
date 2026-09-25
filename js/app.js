@@ -1643,10 +1643,60 @@ function burstConfetti(el){
   }
 }
 
+/* Удаление не спрашивает подтверждения, но и не теряет запись:
+   вместо диалога снизу появляется плашка «вернуть» на 8 секунд. */
+const UNDO_MS = 8000;
+let lastDeleted = null;
+let undoTimer = null;
+
+const TYPE_TITLES_ACC = {
+  lessons:'урок', homework:'задание', summatives:'суммативку',
+  events:'событие', goals:'цель', notes:'заметку'
+};
+
 function deleteItem(type, id){
+  const index = DATA[type].findIndex(x=>x.id===id);
+  if(index === -1) return;
+  const item = DATA[type][index];
+
   DATA[type] = DATA[type].filter(x=>x.id!==id);
+  lastDeleted = {type, item, index};
   saveData();
   renderAll();
+
+  showUndo('Удалил ' + (TYPE_TITLES_ACC[type]||'запись') + ' «' + (item.title||'без названия') + '»');
+}
+
+function undoDelete(){
+  if(!lastDeleted) return;
+  const {type, item, index} = lastDeleted;
+  DATA[type].splice(Math.min(index, DATA[type].length), 0, item);  // возвращаем на своё место
+  lastDeleted = null;
+  hideUndo();
+  saveData();
+  renderAll();
+}
+
+function showUndo(text){
+  let bar = document.getElementById('undo-bar');
+  if(!bar){
+    bar = document.createElement('div');
+    bar.id = 'undo-bar';
+    bar.className = 'undo-bar';
+    bar.innerHTML = '<span id="undo-text"></span><button onclick="undoDelete()">Вернуть</button>';
+    document.body.appendChild(bar);
+  }
+  document.getElementById('undo-text').textContent = text;
+  bar.classList.add('open');
+
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(()=>{ lastDeleted = null; hideUndo(); }, UNDO_MS);
+}
+
+function hideUndo(){
+  const bar = document.getElementById('undo-bar');
+  if(bar) bar.classList.remove('open');
+  clearTimeout(undoTimer);
 }
 
 const FIELD_DEFS = {
@@ -1997,6 +2047,11 @@ function paletteMove(delta){
 }
 
 document.addEventListener('keydown', (e) => {
+  if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && lastDeleted && !isTyping(e.target)){
+    e.preventDefault();
+    undoDelete();
+    return;
+  }
   if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'){
     e.preventDefault();
     const overlay = document.getElementById('palette-overlay');
@@ -2121,6 +2176,7 @@ const HOTKEYS = [
   {keys:'T',       label:'Переключить тему'},
   {keys:'P',       label:'Таймер фокуса: старт или пауза'},
   {keys:'?',       label:'Эта шпаргалка'},
+  {keys:'⌘Z',      label:'Вернуть удалённое'},
   {keys:'Esc',     label:'Закрыть окно или поиск'}
 ];
 
