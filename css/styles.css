@@ -1469,3 +1469,24 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .forecast-basis{ font-size:10.5px; color: var(--text-faint); margin-top:2px; }
 .forecast-rows{ display:flex; flex-wrap:wrap; gap:14px; font-size:11.5px; color:var(--text-dim); }
 .forecast-rows b{ color: var(--text); font-weight:600; }
+
+/* ============ ШПАРГАЛКА ПО КЛАВИШАМ ============ */
+.theme-toggle kbd{
+  float:right;
+  font-family: inherit; font-size:10px;
+  padding:1px 6px; border-radius:5px;
+  border:1px solid var(--line); background: var(--surface-3); color: var(--text-faint);
+}
+.hotkey-list{ display:flex; flex-direction:column; gap:2px; margin: 4px 0 6px; }
+.hotkey-row{
+  display:flex; align-items:center; gap:12px;
+  padding:7px 10px; border-radius: var(--radius-sm);
+  font-size:12.5px; color: var(--text-dim);
+}
+.hotkey-row:nth-child(odd){ background: var(--surface-2); }
+.hotkey-row kbd{
+  min-width:58px; text-align:center; flex-shrink:0;
+  font-family: inherit; font-size:11px; font-weight:600;
+  padding:3px 8px; border-radius:6px;
+  border:1px solid var(--line-strong); background: var(--surface-3); color: var(--text);
+}

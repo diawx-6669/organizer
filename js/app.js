@@ -1942,3 +1942,65 @@ if('serviceWorker' in navigator && location.protocol !== 'file:'){
     });
   });
 }
+
+/* ============ ГОРЯЧИЕ КЛАВИШИ ============ */
+const HOTKEYS = [
+  {keys:'1 … 9',   label:'Перейти к разделу по номеру'},
+  {keys:'N',       label:'Новое задание'},
+  {keys:'S',       label:'Новая суммативка'},
+  {keys:'G',       label:'Новая цель'},
+  {keys:'Z',       label:'Новая заметка'},
+  {keys:'/',       label:'Поиск (то же, что ⌘K)'},
+  {keys:'T',       label:'Переключить тему'},
+  {keys:'P',       label:'Таймер фокуса: старт или пауза'},
+  {keys:'?',       label:'Эта шпаргалка'},
+  {keys:'Esc',     label:'Закрыть окно или поиск'}
+];
+
+/* печатаем в поле — клавиши не перехватываем */
+function isTyping(el){
+  if(!el) return false;
+  if(el.isContentEditable) return true;
+  return ['INPUT','TEXTAREA','SELECT'].includes(el.tagName);
+}
+
+function goToView(name){
+  const btn = document.querySelector(`.tab-btn[data-view="${name}"]`);
+  if(btn) btn.click();
+}
+
+function openHotkeys(){
+  const box = document.getElementById('modal-box');
+  box.innerHTML = '<h3>Горячие клавиши</h3><div class="hotkey-list">' +
+    HOTKEYS.map(h=>`<div class="hotkey-row"><kbd>${escapeHtml(h.keys)}</kbd><span>${escapeHtml(h.label)}</span></div>`).join('') +
+    '</div><div class="modal-actions"><button class="btn-primary" onclick="closeModal()">Понятно</button></div>';
+  document.getElementById('overlay').classList.add('open');
+}
+
+document.addEventListener('keydown', (e)=>{
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+  if(isTyping(e.target)) return;
+  if(document.getElementById('overlay').classList.contains('open')) return;
+  if(document.getElementById('palette-overlay').classList.contains('open')) return;
+
+  const views = ['dashboard','schedule','lessons','subjects','homework','summatives','events','goals','notes','calendar'];
+  if(/^[1-9]$/.test(e.key)){ e.preventDefault(); goToView(views[Number(e.key)-1]); return; }
+
+  switch(e.key){
+    case '/': e.preventDefault(); openPalette(); break;
+    case '?': e.preventDefault(); openHotkeys(); break;
+    case 'n': case 'N': case 'т': case 'Т':
+      e.preventDefault(); goToView('homework');
+      setTimeout(()=>{ const q = document.getElementById('quick-task-input'); if(q) q.focus(); }, 60);
+      break;
+    case 's': case 'S': case 'ы': case 'Ы': e.preventDefault(); openModal('summatives'); break;
+    case 'g': case 'G': case 'п': case 'П': e.preventDefault(); openModal('goals'); break;
+    case 'z': case 'Z': case 'я': case 'Я': e.preventDefault(); openModal('notes'); break;
+    case 't': case 'T': case 'е': case 'Е': e.preventDefault(); toggleTheme(); break;
+    case 'p': case 'P': case 'з': case 'З':
+      e.preventDefault();
+      document.getElementById('pomodoro').classList.add('open');
+      pomodoroStartPause();
+      break;
+  }
+});
