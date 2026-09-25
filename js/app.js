@@ -1931,3 +1931,14 @@ setInterval(renderTodayLessons, 60*1000);
   });
   renderQuickPreview();
 })();
+
+/* ============ УСТАНОВКА НА ТЕЛЕФОН (PWA) ============ */
+/* Service worker живёт только на https или localhost — при открытии
+   файла напрямую с диска регистрация просто пропускается. */
+if('serviceWorker' in navigator && location.protocol !== 'file:'){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(err => {
+      console.log('Офлайн-режим не включился:', err.message);
+    });
+  });
+}
