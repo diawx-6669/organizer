@@ -1666,3 +1666,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
   @page{ margin: 12mm; size: A4 landscape; }
 }
+
+/* ============ ИМПОРТ КОПИИ ============ */
+.import-list{ margin: 4px 0 12px; border:1px solid var(--line); border-radius: var(--radius-sm); overflow:hidden; }
+.import-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 12px; font-size:12.5px; color:var(--text-dim);
+}
+.import-row + .import-row{ border-top:1px solid var(--line-soft); }
+.import-row b{ color: var(--text); font-variant-numeric: tabular-nums; }
+.import-note{ font-size:11.5px; color:var(--text-faint); line-height:1.5; margin-bottom:4px; }
