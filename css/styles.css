@@ -1358,3 +1358,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .today-row{ grid-template-columns: 42px 1fr auto; }
   .today-room{ display:none; }
 }
+
+/* ============ СРОКИ ============ */
+.due-tag{ display:inline-flex; flex-direction:column; align-items:flex-end; gap:1px; line-height:1.25; }
+.due-tag i{ font-style:normal; font-size:9px; opacity:.75; letter-spacing:.01em; }
+.due-tag.due-today{ color:var(--tab1); border-color:rgba(240,168,96,.45); background:rgba(240,168,96,.12); font-weight:600; }
+.due-tag.due-soon{ color:var(--tab1); border-color:rgba(240,168,96,.28); }

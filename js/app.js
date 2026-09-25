@@ -583,10 +583,46 @@ function fmtDate(d){
   return dt.getDate() + ' ' + MONTHS[dt.getMonth()];
 }
 
-function isOverdue(dateStr, done){
-  if(!dateStr || done) return false;
+
+/* ---- сколько дней до срока ---- */
+function daysUntil(dateStr){
+  if(!dateStr) return null;
   const today = new Date(); today.setHours(0,0,0,0);
-  return new Date(dateStr) < today;
+  const due = new Date(dateStr); due.setHours(0,0,0,0);
+  return Math.round((due - today)/(1000*60*60*24));
+}
+
+function plural(n, one, few, many){
+  const a = Math.abs(n) % 100, b = a % 10;
+  if(a > 10 && a < 20) return many;
+  if(b > 1 && b < 5) return few;
+  if(b === 1) return one;
+  return many;
+}
+
+/* подпись вида «сегодня», «завтра», «через 3 дня», «просрочено на 2 дня» */
+function dueLabel(dateStr){
+  const d = daysUntil(dateStr);
+  if(d === null) return '';
+  if(d === 0) return 'сегодня';
+  if(d === 1) return 'завтра';
+  if(d === 2) return 'послезавтра';
+  if(d < 0){ const n = -d; return 'просрочено на ' + n + ' ' + plural(n,'день','дня','дней'); }
+  return 'через ' + d + ' ' + plural(d,'день','дня','дней');
+}
+
+/* тег со сроком: дата + сколько осталось */
+function dueTagHtml(dateStr, done){
+  if(!dateStr) return '<span class="tag">—</span>';
+  const d = daysUntil(dateStr);
+  let cls = 'tag due-tag';
+  if(!done){
+    if(d < 0) cls += ' overdue';
+    else if(d === 0) cls += ' due-today';
+    else if(d <= 2) cls += ' due-soon';
+  }
+  const rel = done ? '' : '<i>' + escapeHtml(dueLabel(dateStr)) + '</i>';
+  return '<span class="' + cls + '">' + escapeHtml(fmtDate(dateStr)) + rel + '</span>';
 }
 
 function renderLessons(){
@@ -625,7 +661,6 @@ function renderHomework(){
     return new Date(a.due||0) - new Date(b.due||0);
   });
   sorted.forEach(item=>{
-    const overdue = isOverdue(item.due, item.done);
     const row = document.createElement('div');
     row.className = 'item-row';
     row.innerHTML = `
@@ -633,7 +668,7 @@ function renderHomework(){
       <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
         <div class="item-meta">${escapeHtml(item.subject||'')}</div></div>
       ${priorityTagHtml(item.priority)}
-      <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
+      ${dueTagHtml(item.due, item.done)}
       <div class="row-actions">
         <button class="icon-btn" aria-label="Изменить" onclick="openModal('homework','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
         <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('homework','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
@@ -722,7 +757,6 @@ function renderSubjects(){
     body.innerHTML = '<div class="empty-note">Домашки по этому предмету нет.</div>';
   } else {
     items.forEach(item=>{
-      const overdue = isOverdue(item.due, item.done);
       const row = document.createElement('div');
       row.className = 'item-row';
       row.innerHTML = `
@@ -730,7 +764,7 @@ function renderSubjects(){
         <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
           ${item.notes? `<div class="item-meta">${escapeHtml(item.notes)}</div>` : ''}</div>
         ${priorityTagHtml(item.priority)}
-        <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
+        ${dueTagHtml(item.due, item.done)}
         <div class="row-actions">
           <button class="icon-btn" aria-label="Изменить" onclick="openModal('homework','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
           <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('homework','${item.id}'); renderSubjects();"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
@@ -778,7 +812,7 @@ function renderEvents(){
       <span></span>
       <div class="item-main"><div class="item-title">${escapeHtml(item.title)}</div>
         <div class="item-meta">${escapeHtml(item.type||'')}${item.link? ' · ссылка сохранена':''}</div></div>
-      <span class="tag">${item.date? fmtDate(item.date): '—'}</span>
+      ${dueTagHtml(item.date, false)}
       <div class="row-actions">
         <button class="icon-btn" aria-label="Изменить" onclick="openModal('events','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
         <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('events','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
@@ -843,7 +877,6 @@ function summativeStats(){
 
 function summativeRowHtml(item, opts){
   opts = opts || {};
-  const overdue = isOverdue(item.due, item.done);
   const hasScore = item.score!=null && item.score!=='' && item.maxScore;
   const pct = hasScore ? Math.round((Number(item.score)/Number(item.maxScore))*100) : null;
   const kindLabel = item.kind === 'soch' ? 'СОЧ' : 'СОР';
@@ -854,7 +887,7 @@ function summativeRowHtml(item, opts){
     <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
       <div class="item-meta">${metaText}</div></div>
     <span class="${gradeTagClass}">${kindLabel}${hasScore? ' · '+escapeHtml(String(item.score))+'/'+escapeHtml(String(item.maxScore))+' ('+pct+'%)' : ' · без оценки'}</span>
-    <span class="tag ${overdue?'overdue':''}">${item.due? fmtDate(item.due) : '—'}</span>
+    ${dueTagHtml(item.due, item.done)}
     <div class="row-actions">
       <button class="icon-btn" aria-label="Изменить" onclick="openModal('summatives','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
       <button class="icon-btn del" aria-label="Удалить" onclick="deleteItem('summatives','${item.id}'); ${opts.afterDelete||''}"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
