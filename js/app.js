@@ -697,7 +697,7 @@ function renderDashboard(){
   document.getElementById('s-avg-grade').textContent = gradeStats.overall!=null ? gradeStats.overall+'%' : '—';
   const evUpcoming = DATA.events.filter(e=> !e.date || new Date(e.date) >= new Date(now.toDateString())).length;
   document.getElementById('s-events').textContent = evUpcoming;
-  const goalsActive = DATA.goals.filter(g=>(g.progress||0) < 100).length;
+  const goalsActive = DATA.goals.filter(g=>goalPercent(g) < 100).length;
   document.getElementById('s-goals').textContent = goalsActive;
 
   // upcoming list: merge homework+summatives+events with dates, sorted, next 5
@@ -830,7 +830,7 @@ function renderOrbit(){
     {r:56, color:'var(--tab1)', items: DATA.homework.filter(h=>!h.done).slice(0,8)},
     {r:84, color:'var(--brick)', items: DATA.summatives.filter(s=>!s.done).slice(0,10)},
     {r:112, color:'var(--tab4)', items: DATA.events.slice(0,10)},
-    {r:140, color:'var(--tab2)', items: DATA.goals.filter(g=>(g.progress||0)<100).slice(0,12)}
+    {r:140, color:'var(--tab2)', items: DATA.goals.filter(g=>goalPercent(g)<100).slice(0,12)}
   ];
   let svgContent = `<circle cx="${cx}" cy="${cy}" r="3.5" fill="var(--gold)"/>`;
   rings.forEach((ring, ringIdx)=>{
@@ -1566,19 +1566,57 @@ function renderEvents(){
   });
 }
 
+/* Если у цели есть шаги, процент считается по ним, а не руками —
+   иначе полоса и галочки показывали бы разное. */
+function goalPercent(goal){
+  if(Array.isArray(goal.steps) && goal.steps.length){
+    const done = goal.steps.filter(st=>st.done).length;
+    return Math.round((done / goal.steps.length) * 100);
+  }
+  return Math.max(0, Math.min(100, Number(goal.progress) || 0));
+}
+
+function toggleGoalStep(goalId, index){
+  const goal = DATA.goals.find(g=>g.id===goalId);
+  if(!goal || !Array.isArray(goal.steps) || !goal.steps[index]) return;
+  goal.steps[index].done = !goal.steps[index].done;
+  if(goal.steps[index].done) logActivity();
+  saveData();
+  renderAll();
+}
+
+function goalStepsHtml(goal){
+  if(!Array.isArray(goal.steps) || goal.steps.length === 0) return '';
+  return '<div class="steps">' + goal.steps.map((st,i)=>
+    `<button class="step${st.done?' done':''}" onclick="toggleGoalStep('${goal.id}', ${i})">` +
+    `<i></i><span>${escapeHtml(st.text)}</span></button>`
+  ).join('') + '</div>';
+}
+
 function renderGoals(){
   const wrap = document.getElementById('list-goals');
   wrap.innerHTML = '';
   if(DATA.goals.length===0){ wrap.innerHTML = '<div class="empty-note">Целей пока нет.</div>'; return; }
-  DATA.goals.forEach(item=>{
-    const pct = Math.max(0, Math.min(100, item.progress||0));
+
+  const sorted = [...DATA.goals].sort((a,b)=>{
+    const da = goalPercent(a) >= 100, db = goalPercent(b) >= 100;
+    if(da !== db) return da ? 1 : -1;           // достигнутые вниз
+    if(!!a.due !== !!b.due) return a.due ? -1 : 1;
+    if(a.due && b.due) return a.due.localeCompare(b.due);
+    return 0;
+  });
+
+  sorted.forEach(item=>{
+    const pct = goalPercent(item);
     const card = document.createElement('div');
-    card.className = 'goal-card';
+    card.className = 'goal-card' + (pct >= 100 ? ' reached' : '');
     card.innerHTML = `
       <div class="goal-top">
         <div>
           <div class="goal-title">${escapeHtml(item.title)}</div>
           ${item.desc? `<div class="goal-desc">${escapeHtml(item.desc)}</div>`:''}
+          ${item.due? `<div class="goal-due">${escapeHtml(fmtDate(item.due))} · ${escapeHtml(dueLabel(item.due))}</div>`:''}
+          ${goalStepsHtml(item)}
         </div>
         <div class="row-actions">
           <button class="icon-btn" aria-label="Изменить" onclick="openModal('goals','${item.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.7a1.4 1.4 0 0 1 2 2L6 12l-2.7.7.7-2.7z"/></svg></button>
@@ -1973,7 +2011,7 @@ function renderCounts(){
   document.getElementById('cnt-homework').textContent = DATA.homework.filter(h=>!h.done).length;
   document.getElementById('cnt-summatives').textContent = DATA.summatives.filter(s=>!s.done).length;
   document.getElementById('cnt-events').textContent = DATA.events.length;
-  document.getElementById('cnt-goals').textContent = DATA.goals.filter(g=>(g.progress||0)<100).length;
+  document.getElementById('cnt-goals').textContent = DATA.goals.filter(g=>goalPercent(g)<100).length;
   document.getElementById('cnt-notes').textContent = DATA.notes.length;
 }
 
@@ -2149,7 +2187,9 @@ const FIELD_DEFS = {
   goals: [
     {key:'title', label:'Цель', type:'text', required:true},
     {key:'desc', label:'Описание', type:'textarea'},
-    {key:'progress', label:'Прогресс, %', type:'number'}
+    {key:'due', label:'К какому числу', type:'date'},
+    {key:'steps', label:'Шаги — по одному в строке', type:'steps'},
+    {key:'progress', label:'Прогресс вручную, % (если шагов нет)', type:'number'}
   ],
   notes: [
     {key:'title', label:'Заголовок', type:'text', required:true},

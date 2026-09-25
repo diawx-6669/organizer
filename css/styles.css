@@ -1811,3 +1811,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   cursor:pointer; vertical-align:middle;
 }
 .sched-week-tag:hover{ color: var(--gold); border-color: var(--gold-soft); }
+
+/* ============ ЦЕЛИ ============ */
+.goal-due{ font-size:11px; color: var(--text-faint); margin-top:6px; }
+.goal-card.reached{ opacity:.62; }
+.goal-card.reached .goal-title{ color: var(--sage); }
+.goal-card .steps{ margin-top:10px; }
