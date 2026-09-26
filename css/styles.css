@@ -1846,3 +1846,35 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   background: var(--gold-soft); color: var(--gold);
   border-radius:3px; padding:0 1px;
 }
+
+/* ============ УЧИТЕЛЯ ============ */
+.head-btns{ display:flex; gap:8px; flex-wrap:wrap; }
+.teacher-list{
+  max-height:300px; overflow-y:auto;
+  border:1px solid var(--line); border-radius: var(--radius-sm);
+  margin: 4px 0 12px;
+}
+.teacher-row{
+  display:grid; grid-template-columns: 1fr 120px 58px;
+  align-items:center; gap:8px;
+  padding:6px 10px;
+}
+.teacher-row + .teacher-row{ border-top:1px solid var(--line-soft); }
+.teacher-row span{
+  font-size:12px; color:var(--text);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.teacher-row input{
+  padding:6px 9px; font-size:11.5px;
+  border:1px solid var(--line); border-radius:6px;
+  background: var(--surface-2); color: var(--text);
+  min-width:0;
+}
+.teacher-row input:focus{ outline:none; border-color: var(--gold-soft); }
+.subject-detail-head h3 small{
+  display:block; margin-top:3px;
+  font-family:'Inter',sans-serif; font-size:11px; font-weight:400; color:var(--text-faint);
+}
+@media (max-width:520px){
+  .teacher-row{ grid-template-columns: 1fr; gap:5px; }
+}

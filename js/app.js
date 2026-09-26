@@ -1,7 +1,7 @@
 /* ============ STATE & STORAGE ============ */
 const STORAGE_KEY = 'student-data';
 let DATA = { lessons: [], homework: [], events: [], goals: [], summatives: [], notes: [],
-             activityLog: {}, extraSubjects: [], hiddenSubjects: [] };
+             activityLog: {}, extraSubjects: [], hiddenSubjects: [], subjectInfo: {} };
 let editingId = null;
 let editingType = null;
 let calDate = new Date();
@@ -185,7 +185,9 @@ function renderSchedule(){
       subjEl.textContent = rus;
       cell.appendChild(subjEl);
 
-      const room = SCHED_ROOMS[subj];
+      const room = subjectRoom(rus, SCHED_ROOMS[subj]);
+      const teacher = subjectTeacher(rus);
+      if(teacher) cell.title = rus + ' · ' + teacher;
       if(room){
         const roomEl = document.createElement('div');
         roomEl.className = 'sched-room';
@@ -230,7 +232,8 @@ function schedLessonsOn(date){
     slot: idx,
     time: SCHED_TIMES[idx],
     subject: SCHED_RUS[subj] || subj,
-    room: SCHED_ROOMS[subj] || '',
+    room: subjectRoom(SCHED_RUS[subj] || subj, SCHED_ROOMS[subj]),
+    teacher: subjectTeacher(SCHED_RUS[subj] || subj),
     isHomeroom: subj === 'Homeroom'
   }));
 }
@@ -548,6 +551,7 @@ function collectLessonEvents(){
           end:   icsLocalStamp(dateStr, addMinutesToTime(time, SCHED_SLOT_MINUTES)),
           summary: SCHED_RUS[subj] || subj,
           location: room || '',
+          teacher: subjectTeacher(SCHED_RUS[subj] || subj),
           rrule: 'FREQ=WEEKLY;INTERVAL=2;UNTIL=' + untilStamp
         });
       });
@@ -572,6 +576,7 @@ function buildLessonsIcs(){
       'RRULE:' + ev.rrule,
       'SUMMARY:' + icsEscape(ev.summary),
       'LOCATION:' + icsEscape(ev.location),
+      'DESCRIPTION:' + icsEscape(ev.teacher || ''),
       'END:VEVENT'
     );
   });
@@ -697,7 +702,7 @@ const DATA_SETS = ['extraSubjects','hiddenSubjects'];
 
 function emptyData(){
   return {lessons:[], homework:[], events:[], goals:[], summatives:[], notes:[],
-          activityLog:{}, extraSubjects:[], hiddenSubjects:[], schedFlip:false};
+          activityLog:{}, extraSubjects:[], hiddenSubjects:[], schedFlip:false, subjectInfo:{}};
 }
 
 function normalizeData(raw){
@@ -771,6 +776,7 @@ function applyImport(mode){
         DATA[key].push(item);
       });
     });
+    DATA.subjectInfo = Object.assign({}, incoming.subjectInfo || {}, DATA.subjectInfo || {});
     DATA_SETS.forEach(key=>{
       incoming[key].forEach(v => { if(!DATA[key].includes(v)) DATA[key].push(v); });
     });
@@ -977,7 +983,7 @@ function renderTodayLessons(){
     return '<div class="today-row' + (isNow?' now':'') + (past?' past':'') + '">' +
       '<span class="today-time">' + l.time + '</span>' +
       '<span class="today-subject">' + escapeHtml(l.subject) + '</span>' +
-      '<span class="today-room">' + escapeHtml(l.room) + '</span>' +
+      '<span class="today-room">' + escapeHtml([l.room, l.teacher].filter(Boolean).join(' · ')) + '</span>' +
       '<span class="today-marks">' + marks.join('') + '</span></div>';
   }).join('');
 
@@ -1347,6 +1353,70 @@ function snoozeBtnHtml(type, id){
     onclick="openSnooze('${type}','${id}', event)">${SNOOZE_ICON}</button>`;
 }
 
+
+/* ============ УЧИТЕЛЯ И КАБИНЕТЫ ============ */
+/* Кабинеты из расписания лежат в SCHED_ROOMS и меняться не могут.
+   Здесь — то, что вписал сам: учитель и кабинет-уточнение по предмету. */
+
+function subjectInfo(subject){
+  return (DATA.subjectInfo && DATA.subjectInfo[subject]) || {};
+}
+
+function subjectTeacher(subject){
+  return subjectInfo(subject).teacher || '';
+}
+
+/* кабинет: сначала свой, если вписан, иначе из расписания */
+function subjectRoom(subject, scheduleRoom){
+  return subjectInfo(subject).room || scheduleRoom || '';
+}
+
+function setSubjectInfo(subject, teacher, room){
+  DATA.subjectInfo = DATA.subjectInfo || {};
+  const clean = {teacher: String(teacher||'').trim(), room: String(room||'').trim()};
+  if(!clean.teacher && !clean.room) delete DATA.subjectInfo[subject];
+  else DATA.subjectInfo[subject] = clean;
+}
+
+function openTeachers(){
+  const rows = subjectGroups().map(subj=>{
+    const info = subjectInfo(subj);
+    const key = encodeURIComponent(subj);
+    return `<div class="teacher-row">
+      <span title="${escapeHtml(subj)}">${escapeHtml(subj)}</span>
+      <input data-subject="${key}" data-field="teacher" type="text"
+             placeholder="учитель" value="${escapeHtml(info.teacher||'')}">
+      <input data-subject="${key}" data-field="room" type="text"
+             placeholder="каб." value="${escapeHtml(info.room||'')}">
+    </div>`;
+  }).join('');
+
+  const box = document.getElementById('modal-box');
+  box.innerHTML = `<h3>Учителя и кабинеты</h3>
+    <p class="import-note">Показываются в расписании, в блоке «сегодня» и на странице предмета.
+      Кабинет можно не заполнять — тогда берётся тот, что стоит в расписании.</p>
+    <div class="teacher-list">${rows}</div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Отмена</button>
+      <button class="btn-primary" onclick="saveTeachers()">Сохранить</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+
+function saveTeachers(){
+  const box = document.getElementById('modal-box');
+  const values = {};
+  box.querySelectorAll('[data-subject]').forEach(input=>{
+    const subj = decodeURIComponent(input.dataset.subject);
+    values[subj] = values[subj] || {};
+    values[subj][input.dataset.field] = input.value;
+  });
+  Object.entries(values).forEach(([subj, v]) => setSubjectInfo(subj, v.teacher, v.room));
+  saveData();
+  renderAll();
+  closeModal();
+}
+
 /* ============ БЫСТРЫЙ ВВОД ОДНОЙ СТРОКОЙ ============ */
 /* «матем параграф 12 пт !» -> предмет, срок, приоритет и название */
 
@@ -1662,7 +1732,9 @@ function renderSubjects(){
 
   const head = document.createElement('div');
   head.className = 'subject-detail-head';
-  head.innerHTML = `<h3>${escapeHtml(selectedSubject)}</h3>`;
+  const info = subjectInfo(selectedSubject);
+  const meta = [info.teacher, info.room].filter(Boolean).join(' · ');
+  head.innerHTML = `<h3>${escapeHtml(selectedSubject)}${meta ? `<small>${escapeHtml(meta)}</small>` : ''}</h3>`;
   const addBtn = document.createElement('button');
   addBtn.className = 'add-btn';
   addBtn.textContent = '+ добавить в ' + selectedSubject;
@@ -2566,7 +2638,7 @@ function showDayPanel(dateObj){
     block.innerHTML = '<div class="day-lessons-title">уроки по расписанию</div>' +
       lessons.map(l =>
         `<div class="day-lesson"><span>${l.time}</span><b>${escapeHtml(l.subject)}</b>` +
-        `<em>${escapeHtml(l.room)}</em></div>`
+        `<em>${escapeHtml([l.room, l.teacher].filter(Boolean).join(' · '))}</em></div>`
       ).join('');
     listEl.appendChild(block);
   }
