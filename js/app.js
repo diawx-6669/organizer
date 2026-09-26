@@ -1592,7 +1592,7 @@ function quickDateFromWeekday(idx, from){
 function parseQuickTask(input, now){
   now = now || new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const out = {title:'', subject:'', due:'', priority:'normal'};
+  const out = {title:'', subject:'', due:'', priority:'normal', kind:'homework'};
 
   const tokens = String(input).trim().split(/\s+/).filter(Boolean);
   if(!tokens.length) return out;
@@ -1607,6 +1607,14 @@ function parseQuickTask(input, now){
   tokens.forEach((t,i)=>{
     const n = norm(t);
     if(t === '!' || n === 'срочно' || n === '!'){ out.priority = 'high'; take(i); }
+  });
+
+  // СОР и СОЧ — только точным словом, иначе «сорт» и «сочинение» ломали бы разбор
+  tokens.forEach((t,i)=>{
+    if(used[i]) return;
+    const n = norm(t);
+    if(n === 'сор'){ out.kind = 'sor'; take(i); }
+    else if(n === 'соч'){ out.kind = 'soch'; take(i); }
   });
 
   // срок — первое подходящее совпадение
@@ -1681,14 +1689,30 @@ function submitQuickTask(){
   const input = document.getElementById('quick-task-input');
   if(!input) return;
   const parsed = parseQuickTask(input.value);
+
+  // «физика сор 15 окт» — названия нет, и это нормально: у суммативки
+  // важны предмет и дата, название подставляем стандартное
+  if(parsed.kind !== 'homework' && !parsed.title && parsed.subject){
+    parsed.title = 'Суммативная работа';
+  }
   if(!parsed.title){
     renderQuickPreview();
     return;
   }
-  DATA.homework.push({
-    id: uid(), done: false, createdAt: Date.now(), notes: '', steps: [],
-    title: parsed.title, subject: parsed.subject, due: parsed.due, priority: parsed.priority
-  });
+
+  if(parsed.kind === 'homework'){
+    DATA.homework.push({
+      id: uid(), done: false, createdAt: Date.now(), notes: '', steps: [], repeat: 'none',
+      title: parsed.title, subject: parsed.subject, due: parsed.due, priority: parsed.priority
+    });
+  } else {
+    DATA.summatives.push({
+      id: uid(), done: false, createdAt: Date.now(), notes: '',
+      title: parsed.title, subject: parsed.subject, due: parsed.due,
+      kind: parsed.kind, score: null, maxScore: 100
+    });
+  }
+
   input.value = '';
   saveData();
   renderAll();
@@ -1702,18 +1726,20 @@ function renderQuickPreview(){
   if(!input || !hint) return;
   const raw = input.value.trim();
   if(!raw){
-    hint.textContent = 'Например: «матем параграф 12 пт !» — предмет, срок и приоритет разберутся сами.';
+    hint.textContent = 'Например: «матем параграф 12 пт !» — предмет, срок и приоритет разберутся сами. Слово «сор» или «соч» заведёт суммативку.';
     hint.classList.remove('ready');
     return;
   }
   const p = parseQuickTask(raw);
   const parts = [];
-  parts.push(p.title ? '«' + p.title + '»' : 'без названия');
+  parts.push({homework:'Домашка', sor:'СОР', soch:'СОЧ'}[p.kind]);
+  const shownTitle = p.title || (p.kind !== 'homework' && p.subject ? 'Суммативная работа' : '');
+  parts.push(shownTitle ? '«' + shownTitle + '»' : 'без названия');
   if(p.subject) parts.push(p.subject);
   if(p.due) parts.push(fmtDate(p.due) + ', ' + dueLabel(p.due));
   if(p.priority === 'high') parts.push('высокий приоритет');
   hint.textContent = parts.join(' · ');
-  hint.classList.toggle('ready', !!p.title);
+  hint.classList.toggle('ready', !!shownTitle);
 }
 
 /* ============ SUBJECTS ============ */
