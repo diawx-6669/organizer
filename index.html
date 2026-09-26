@@ -65,7 +65,7 @@
         загрузить копию
         <input type="file" accept="application/json" style="display:none" onchange="if(this.files[0]) importBackup(this.files[0]); this.value='';">
       </label>
-      <button class="backup-btn" onclick="exportIcs()" title="Выгрузить дедлайны в файл календаря">в календарь</button>
+      <button class="backup-btn" onclick="openIcsExport()" title="Выгрузить дедлайны в файл календаря">в календарь</button>
       <button class="backup-btn" onclick="openCsvExport()" title="Выгрузить таблицей для Excel или Numbers">таблицей</button>
     </div>
   </nav>
