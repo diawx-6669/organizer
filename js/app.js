@@ -892,6 +892,7 @@ function renderDashboard(){
   }
 
   renderTodayLessons();
+  renderWorkload();
   renderActivityHeatmap();
   renderOrbit();
 }
@@ -950,6 +951,89 @@ function renderActivityHeatmap(){
     </div>
     <div class="heat-grid">${cells}</div>
     <div class="heat-months">${monthMarks.map(m=>`<span>${m}</span>`).join('')}</div>`;
+}
+
+
+/* ============ НАГРУЗКА ПО ДНЯМ ============ */
+/* Сколько работы на каждый день: сумма оценок времени по несделанным
+   заданиям. У заданий без оценки берём DEFAULT_TASK_MINUTES, иначе день
+   с пятью безымянными по времени задачами выглядел бы пустым. */
+
+const DEFAULT_TASK_MINUTES = 30;
+const WORKLOAD_DAYS = 14;
+
+function taskMinutes(item){
+  const n = Number(item.minutes);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_TASK_MINUTES;
+}
+
+function formatMinutes(total){
+  if(total <= 0) return '—';
+  const h = Math.floor(total/60), m = total % 60;
+  if(!h) return m + ' мин';
+  if(!m) return h + ' ч';
+  return h + ' ч ' + m + ' мин';
+}
+
+/* по дню: несделанная домашка + суммативки на эту дату */
+function workloadFor(dateStr){
+  const hw = DATA.homework.filter(h => !h.done && h.due === dateStr);
+  const sor = DATA.summatives.filter(x => !x.done && x.due === dateStr);
+  return {
+    minutes: hw.reduce((sum, h) => sum + taskMinutes(h), 0),
+    tasks: hw.length,
+    sor: sor.length
+  };
+}
+
+function renderWorkload(){
+  const wrap = document.getElementById('workload');
+  if(!wrap) return;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = [];
+  for(let i = 0; i < WORKLOAD_DAYS; i++){
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const key = schedDateKey(d);
+    days.push({date: d, key, ...workloadFor(key)});
+  }
+
+  const busiest = Math.max(...days.map(d => d.minutes), 1);
+  const total = days.reduce((sum, d) => sum + d.minutes, 0);
+  if(total === 0){
+    wrap.innerHTML = '<div class="workload-head"><div><strong>Нагрузка на две недели</strong>' +
+      '<small>появится, когда будут задания со сроком</small></div></div>';
+    return;
+  }
+
+  const overdue = DATA.homework.filter(h => !h.done && h.due && daysUntil(h.due) < 0);
+  const overdueMin = overdue.reduce((sum, h) => sum + taskMinutes(h), 0);
+
+  const bars = days.map(d=>{
+    const height = Math.round((d.minutes / busiest) * 100);
+    const weekend = [5,6].includes((d.date.getDay()+6)%7);
+    const title = `${d.date.getDate()} ${MONTHS[d.date.getMonth()]}: ` +
+      (d.minutes ? `${formatMinutes(d.minutes)}, ${d.tasks} ${plural(d.tasks,'задача','задачи','задач')}` : 'свободно') +
+      (d.sor ? `, СОР: ${d.sor}` : '');
+    // пустой день — ничего не рисуем; СОР без домашки помечаем точкой,
+    // иначе полоска в пару пикселей читалась бы как «немного работы»
+    const inner = d.minutes > 0
+      ? `<div class="wl-bar${d.sor?' has-sor':''}" style="height:${Math.max(height, 4)}%"></div>`
+      : (d.sor ? '<i class="wl-dot"></i>' : '');
+    return `<div class="wl-col${weekend?' weekend':''}" title="${escapeHtml(title)}">
+      <div class="wl-bar-wrap">${inner}</div>
+      <span class="wl-day">${d.date.getDate()}</span>
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="workload-head">
+      <div><strong>Нагрузка на две недели</strong>
+        <small>всего ${formatMinutes(total)}${overdueMin ? ' · просрочено на ' + formatMinutes(overdueMin) : ''}</small></div>
+      <div class="wl-legend"><i class="wl-swatch"></i>домашка<i class="wl-swatch sor"></i>день с СОР</div>
+    </div>
+    <div class="wl-grid">${bars}</div>`;
 }
 
 /* ---- блок "уроки на сегодня" ---- */
@@ -1209,6 +1293,7 @@ function renderHomework(){
       <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}', event)"></div>
       <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
         <div class="item-meta">${escapeHtml(item.subject||'')}</div>${stepsHtml(item)}</div>
+      ${item.minutes ? `<span class="tag mins">${escapeHtml(formatMinutes(Number(item.minutes)))}</span>` : '<span></span>'}
       ${priorityTagHtml(item.priority)}
       ${dueTagHtml(item.due, item.done)}
       <div class="row-actions">
@@ -2454,6 +2539,7 @@ const FIELD_DEFS = {
     {key:'subject', label:'Предмет', type:'text', list:'subjects-datalist'},
     {key:'priority', label:'Приоритет', type:'select', options:[{value:'normal',label:'Обычный'},{value:'high',label:'Высокий'},{value:'low',label:'Низкий'}], default:'normal'},
     {key:'due', label:'Срок сдачи', type:'date'},
+    {key:'minutes', label:'Сколько займёт, минут', type:'number'},
     {key:'steps', label:'Шаги — по одному в строке', type:'steps'},
     {key:'notes', label:'Заметки', type:'textarea'}
   ],
