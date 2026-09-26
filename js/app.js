@@ -503,13 +503,109 @@ function buildIcs(){
   return lines.map(icsFold).join('\r\n') + '\r\n';
 }
 
-function exportIcs(){
-  const events = collectIcsEvents();
-  if(events.length === 0){
+/* ---- уроки как повторяющиеся события ----
+   Недели А и Б чередуются, поэтому обычное «каждую неделю» не годится:
+   на каждый урок ставим повтор раз в две недели от ближайшей подходящей
+   недели. Время пишем без Z и без часового пояса — это «плавающее» время
+   по стандарту, урок в 08:00 останется в 08:00 в любом поясе. */
+
+const LESSONS_WEEKS_AHEAD = 18;
+
+function icsLocalStamp(dateStr, time){
+  const [h, m] = time.split(':');
+  return dateStr.replace(/-/g,'') + 'T' + h + m + '00';
+}
+
+function addMinutesToTime(time, minutes){
+  const total = slotMinutes(time) + minutes;
+  return String(Math.floor(total/60)).padStart(2,'0') + ':' + String(total%60).padStart(2,'0');
+}
+
+function collectLessonEvents(){
+  const events = [];
+  const today = new Date(); today.setHours(0,0,0,0);
+  const firstMonday = schedGetMonday(today);
+
+  const until = new Date(firstMonday);
+  until.setDate(until.getDate() + LESSONS_WEEKS_AHEAD*7);
+  const untilStamp = icsDate(schedDateKey(until)) + 'T235959Z';
+
+  ['A','B'].forEach(pattern=>{
+    // ближайший понедельник с нужным чередованием
+    let monday = new Date(firstMonday);
+    if(schedPatternFor(monday) !== pattern) monday.setDate(monday.getDate() + 7);
+
+    SCHED_DAY_KEYS.forEach((dayKey, dayIdx)=>{
+      SCHED_DATA[pattern][dayKey].forEach((subj, slot)=>{
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + dayIdx);
+        const dateStr = schedDateKey(date);
+        const time = SCHED_TIMES[slot];
+        const room = SCHED_ROOMS[subj];
+        events.push({
+          uid: `lesson-${pattern}-${dayIdx}-${slot}`,
+          start: icsLocalStamp(dateStr, time),
+          end:   icsLocalStamp(dateStr, addMinutesToTime(time, SCHED_SLOT_MINUTES)),
+          summary: SCHED_RUS[subj] || subj,
+          location: room || '',
+          rrule: 'FREQ=WEEKLY;INTERVAL=2;UNTIL=' + untilStamp
+        });
+      });
+    });
+  });
+  return events;
+}
+
+function buildLessonsIcs(){
+  const stamp = icsStamp();
+  const lines = [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//moy-organayzer//RU',
+    'CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:Расписание уроков'
+  ];
+  collectLessonEvents().forEach(ev=>{
+    lines.push(
+      'BEGIN:VEVENT',
+      'UID:' + ev.uid + '@moy-organayzer',
+      'DTSTAMP:' + stamp,
+      'DTSTART:' + ev.start,
+      'DTEND:' + ev.end,
+      'RRULE:' + ev.rrule,
+      'SUMMARY:' + icsEscape(ev.summary),
+      'LOCATION:' + icsEscape(ev.location),
+      'END:VEVENT'
+    );
+  });
+  lines.push('END:VCALENDAR');
+  return lines.map(icsFold).join('\r\n') + '\r\n';
+}
+
+function openIcsExport(){
+  const deadlines = collectIcsEvents().length;
+  const box = document.getElementById('modal-box');
+  box.innerHTML = `<h3>Выгрузить в календарь</h3>
+    <p class="import-note">Файл .ics открывается в Календаре на телефоне или
+      импортируется в Google Calendar.</p>
+    <div class="modal-actions" style="justify-content:flex-start;flex-wrap:wrap">
+      <button class="btn-secondary" onclick="downloadIcs('deadlines')">Дедлайны (${deadlines})</button>
+      <button class="btn-secondary" onclick="downloadIcs('lessons')">Расписание уроков</button>
+    </div>
+    <p class="import-note">Уроки выгружаются на ${LESSONS_WEEKS_AHEAD} недель вперёд,
+      с повтором раз в две недели — чередование А и Б сохраняется.</p>
+    <div class="modal-actions"><button class="btn-primary" onclick="closeModal()">Закрыть</button></div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+
+function downloadIcs(which){
+  const stamp = schedDateKey(new Date());
+  if(which === 'lessons'){
+    downloadFile(buildLessonsIcs(), `raspisanie-${stamp}.ics`, 'text/calendar;charset=utf-8');
+    return;
+  }
+  if(collectIcsEvents().length === 0){
     alert('Пока нечего выгружать — нет ни одной записи с датой.');
     return;
   }
-  downloadFile(buildIcs(), 'moy-organayzer-' + schedDateKey(new Date()) + '.ics', 'text/calendar;charset=utf-8');
+  downloadFile(buildIcs(), `dedlayny-${stamp}.ics`, 'text/calendar;charset=utf-8');
 }
 
 /* общая выгрузка файла — её же использует бэкап */
