@@ -2352,6 +2352,36 @@ function renderSummFilterOptions(){
   if(sel.value !== prev){ sel.value = 'all'; summFilterSubject = 'all'; }
 }
 
+
+/* ---- фильтр по статусу для суммативок ---- */
+const SUMM_STATUSES = [
+  {key:'upcoming', label:'Впереди',      test: x => !x.done && x.due && daysUntil(x.due) >= 0},
+  {key:'noscore',  label:'Без оценки',   test: x => x.score === null || x.score === undefined || x.score === ''},
+  {key:'low',      label:'Ниже 50%',     test: x => {
+      const has = x.score !== null && x.score !== undefined && x.score !== '' && Number(x.maxScore) > 0;
+      return has && (Number(x.score)/Number(x.maxScore))*100 < 50;
+    }},
+  {key:'past',     label:'Прошедшие',    test: x => x.due && daysUntil(x.due) < 0},
+  {key:'all',      label:'Все',          test: () => true}
+];
+
+let summStatus = 'upcoming';
+function setSummStatus(key){ summStatus = key; renderSummatives(); }
+
+function summStatusTest(key){
+  const st = SUMM_STATUSES.find(s => s.key === key);
+  return st ? st.test : (() => true);
+}
+
+function renderSummStatusChips(counts){
+  const wrap = document.getElementById('summ-status-chips');
+  if(!wrap) return;
+  wrap.innerHTML = SUMM_STATUSES.map(st=>
+    `<button class="status-chip${st.key===summStatus?' active':''}" onclick="setSummStatus('${st.key}')">` +
+    `${st.label}<span>${counts[st.key]}</span></button>`
+  ).join('');
+}
+
 function renderSummatives(){
   renderSummFilterOptions();
   renderSummCharts();
@@ -2373,11 +2403,19 @@ function renderSummatives(){
   const wrap = document.getElementById('list-summatives');
   if(!wrap) return;
   wrap.innerHTML = '';
-  const filtered = summFilterSubject === 'all' ? DATA.summatives : DATA.summatives.filter(s => (s.subject||'') === summFilterSubject);
+
+  const bySubject = summFilterSubject === 'all'
+    ? DATA.summatives
+    : DATA.summatives.filter(s => (s.subject||'') === summFilterSubject);
+
+  const counts = {};
+  SUMM_STATUSES.forEach(st => counts[st.key] = bySubject.filter(st.test).length);
+  renderSummStatusChips(counts);
+
+  const filtered = bySubject.filter(summStatusTest(summStatus));
   if(filtered.length===0){
-    wrap.innerHTML = summFilterSubject === 'all'
-      ? '<div class="empty-note">Суммативок пока нет.</div>'
-      : '<div class="empty-note">По этому предмету суммативок нет.</div>';
+    const st = SUMM_STATUSES.find(x => x.key === summStatus);
+    wrap.innerHTML = `<div class="empty-note">Ничего не подходит под фильтр «${st?st.label.toLowerCase():summStatus}».</div>`;
     return;
   }
   const sorted = [...filtered].sort((a,b)=>{
