@@ -891,6 +891,7 @@ function renderDashboard(){
     });
   }
 
+  renderUrgent();
   renderTodayLessons();
   renderWorkload();
   renderActivityHeatmap();
@@ -1034,6 +1035,48 @@ function renderWorkload(){
       <div class="wl-legend"><i class="wl-swatch"></i>домашка<i class="wl-swatch sor"></i>день с СОР</div>
     </div>
     <div class="wl-grid">${bars}</div>`;
+}
+
+
+/* ============ СВОДКА «ЧТО ГОРИТ» ============ */
+/* Полоса наверху обзора. Показывается только когда есть о чём
+   предупредить — пустую плашку «всё хорошо» видеть каждый день незачем. */
+
+function urgentBuckets(){
+  const open = DATA.homework.filter(h => !h.done && h.due);
+  const sor  = DATA.summatives.filter(x => !x.done && x.due);
+  const by = (list, test) => list.filter(i => test(daysUntil(i.due)));
+  return {
+    overdue: by(open, d => d < 0),
+    today:   by(open, d => d === 0),
+    tomorrow:by(open, d => d === 1),
+    sorSoon: by(sor,  d => d >= 0 && d <= 2)
+  };
+}
+
+function renderUrgent(){
+  const wrap = document.getElementById('urgent');
+  if(!wrap) return;
+  const b = urgentBuckets();
+
+  const parts = [];
+  if(b.overdue.length)  parts.push({cls:'bad',  n:b.overdue.length,  word:['просрочена','просрочены','просрочено'], tail:''});
+  if(b.today.length)    parts.push({cls:'warn', n:b.today.length,    word:['задача','задачи','задач'], tail:' на сегодня'});
+  if(b.tomorrow.length) parts.push({cls:'soft', n:b.tomorrow.length, word:['задача','задачи','задач'], tail:' на завтра'});
+  if(b.sorSoon.length)  parts.push({cls:'bad',  n:b.sorSoon.length,  word:['СОР','СОР','СОР'], tail:' в ближайшие дни'});
+
+  if(parts.length === 0){
+    wrap.classList.remove('on');
+    wrap.innerHTML = '';
+    return;
+  }
+
+  const minutes = [...b.overdue, ...b.today].reduce((sum, h) => sum + taskMinutes(h), 0);
+  wrap.classList.add('on');
+  wrap.innerHTML =
+    parts.map(p => `<span class="urgent-chip ${p.cls}"><b>${p.n}</b> ${plural(p.n, ...p.word)}${p.tail}</span>`).join('') +
+    (minutes ? `<span class="urgent-time">≈ ${escapeHtml(formatMinutes(minutes))} работы</span>` : '') +
+    `<button class="urgent-go" onclick="goToView('homework')">Открыть</button>`;
 }
 
 /* ---- блок "уроки на сегодня" ---- */
