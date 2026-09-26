@@ -1937,3 +1937,33 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   color: var(--text-faint); font-size:12px; cursor:pointer;
 }
 .btn-ghost:hover{ color: var(--text); border-color: var(--line-strong); }
+
+/* ============ СВОДКА «ЧТО ГОРИТ» ============ */
+.urgent{ display:none; }
+.urgent.on{
+  display:flex; align-items:center; flex-wrap:wrap; gap:8px;
+  padding:11px 14px;
+  margin: 0 0 18px;
+  border:1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.urgent-chip{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 11px; border-radius:20px;
+  font-size:11.5px; color: var(--text-dim);
+  border:1px solid var(--line); background: var(--surface-2);
+}
+.urgent-chip b{ font-size:12.5px; font-weight:700; }
+.urgent-chip.bad{ color: var(--brick); border-color: rgba(242,112,92,.4); background: var(--brick-soft); }
+.urgent-chip.warn{ color: var(--tab1); border-color: rgba(240,168,96,.4); background: rgba(240,168,96,.1); }
+.urgent-chip.soft{ color: var(--text-dim); }
+.urgent-time{ font-size:11px; color: var(--text-faint); }
+.urgent-go{
+  margin-left:auto;
+  padding:6px 14px; border-radius:20px;
+  border:1px solid var(--gold-soft); background: var(--gold-soft);
+  color: var(--gold); font-size:11.5px; font-weight:600; cursor:pointer;
+}
+.urgent-go:hover{ background: rgba(79,209,197,.2); }
+@media (max-width:520px){ .urgent-go{ margin-left:0; width:100%; } }
