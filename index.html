@@ -55,6 +55,7 @@
     <button class="tab-btn" data-view="goals" style="--dotc:var(--tab2)"><i class="dot"></i><span class="label">Цели</span><span class="count" id="cnt-goals">0</span></button>
     <button class="tab-btn" data-view="notes" style="--dotc:var(--tab7)"><i class="dot"></i><span class="label">Заметки</span><span class="count" id="cnt-notes">0</span></button>
     <button class="tab-btn" data-view="calendar" style="--dotc:var(--tab6)"><i class="dot"></i><span class="label">Календарь</span></button>
+    <button class="tab-btn" data-view="fun" style="--dotc:var(--tab4)"><i class="dot"></i><span class="label">Развлечения</span><span class="count" id="cnt-fun">0</span></button>
     <div class="sync-note"><span class="sync-dotpulse" id="save-indicator"></span><b>Хранится локально.</b> Данные лежат в этом браузере и никуда не уходят.</div>
     <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">светлая тема</button>
     <button class="theme-toggle" onclick="openHotkeys()">горячие клавиши <kbd>?</kbd></button>
@@ -284,6 +285,20 @@
         <div class="day-panel-title" id="day-panel-title"></div>
         <div id="day-panel-list"></div>
       </div>
+    </section>
+
+    <!-- FUN -->
+    <section class="view" id="view-fun">
+      <div class="section-head">
+        <div><h2>Развлечения</h2><p class="section-hint">Что посмотреть и во что поиграть. Нажми на карточку — откроется ссылка.</p></div>
+        <div class="head-btns">
+          <button class="add-btn" onclick="pickRandomFun()">что посмотреть?</button>
+          <button class="add-btn" onclick="openModal('fun')">+ добавить</button>
+        </div>
+      </div>
+      <div class="fun-sources" id="fun-sources"></div>
+      <div class="status-chips" id="fun-chips"></div>
+      <div class="fun-grid" id="list-fun"></div>
     </section>
 
   </main>

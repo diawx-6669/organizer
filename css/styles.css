@@ -1985,3 +1985,71 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   border:1px solid var(--line); border-radius:6px;
   background: var(--surface-2); color: var(--text);
 }
+
+/* ============ РАЗВЛЕЧЕНИЯ ============ */
+.fun-sources{
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+  margin: 0 0 16px;
+}
+.fun-sources-title{
+  width:100%;
+  font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+  color: var(--text-faint); margin-bottom:2px;
+}
+.fun-source{
+  display:flex; flex-direction:column; gap:2px;
+  padding:8px 13px;
+  border:1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  text-decoration:none;
+  transition: border-color .12s ease, transform .12s ease;
+}
+.fun-source:hover{ border-color: var(--gold-soft); transform: translateY(-1px); }
+.fun-source b{ font-size:12.5px; color: var(--text); font-weight:600; }
+.fun-source span{ font-size:10px; color: var(--text-faint); }
+
+.fun-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap:12px;
+}
+.fun-card{
+  position:relative;
+  display:flex; flex-direction:column; gap:7px;
+  padding:14px 15px 12px;
+  border:1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  text-decoration:none; color:inherit;
+  transition: border-color .14s ease, transform .14s ease, background .14s ease;
+}
+a.fun-card:hover{ border-color: var(--gold-soft); transform: translateY(-2px); background: var(--surface-2); }
+.fun-card.seen{ opacity:.55; }
+.fun-card.picked{
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
+.fun-top{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.fun-kind{
+  font-size:9.5px; letter-spacing:.06em; text-transform:uppercase;
+  padding:2px 8px; border-radius:20px;
+  background: var(--gold-soft); color: var(--gold);
+}
+.fun-lang{ font-size:9.5px; color: var(--text-faint); }
+.fun-title{ font-family:'Space Grotesk'; font-size:14px; font-weight:600; color:var(--text); line-height:1.3; }
+.fun-note{ font-size:11.5px; color: var(--text-faint); line-height:1.5; }
+.fun-actions{ display:flex; gap:6px; flex-wrap:wrap; margin-top:auto; padding-top:6px; }
+.fun-btn{
+  padding:4px 9px; border-radius:20px;
+  border:1px solid var(--line); background: var(--surface-2);
+  color: var(--text-faint); font-size:10px; cursor:pointer;
+}
+.fun-btn:hover{ color: var(--text); border-color: var(--line-strong); }
+.fun-btn.on{ color: var(--sage); border-color: rgba(127,227,171,.4); background: rgba(127,227,171,.12); }
+.fun-btn.del:hover{ color: var(--brick); border-color: rgba(242,112,92,.4); }
+.fun-go{ font-size:10px; color: var(--gold); }
+.fun-go.muted{ color: var(--text-faint); }
+
+@media (max-width:520px){
+  .fun-grid{ grid-template-columns: 1fr; }
+}

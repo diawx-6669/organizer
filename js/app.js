@@ -1,6 +1,6 @@
 /* ============ STATE & STORAGE ============ */
 const STORAGE_KEY = 'student-data';
-let DATA = { lessons: [], homework: [], events: [], goals: [], summatives: [], notes: [],
+let DATA = { lessons: [], homework: [], events: [], goals: [], summatives: [], notes: [], fun: [],
              activityLog: {}, extraSubjects: [], hiddenSubjects: [], subjectInfo: {} };
 let editingId = null;
 let editingType = null;
@@ -711,11 +711,11 @@ function exportBackup(){
     `moy-organayzer-backup-${schedDateKey(new Date())}.json`, 'application/json');
 }
 
-const DATA_LISTS = ['lessons','homework','events','goals','summatives','notes'];
+const DATA_LISTS = ['lessons','homework','events','goals','summatives','notes','fun'];
 const DATA_SETS = ['extraSubjects','hiddenSubjects'];
 
 function emptyData(){
-  return {lessons:[], homework:[], events:[], goals:[], summatives:[], notes:[],
+  return {lessons:[], homework:[], events:[], goals:[], summatives:[], notes:[], fun:[],
           activityLog:{}, extraSubjects:[], hiddenSubjects:[], schedFlip:false, subjectInfo:{}};
 }
 
@@ -2530,6 +2530,152 @@ function renderNotes(){
   });
 }
 
+
+/* ============ РАЗВЛЕЧЕНИЯ ============ */
+/* Свой список того, что посмотреть и поиграть. Ссылки вписываются
+   вручную и открываются через safeUrl — в href попадают только http,
+   https и mailto. */
+
+const FUN_KINDS = {
+  film:'Фильм', series:'Сериал', cartoon:'Мультфильм', video:'Видео',
+  game:'Игра', music:'Музыка', book:'Книга', other:'Другое'
+};
+
+const FUN_LANGS = {
+  'orig-sub':'ориг. + субтитры', 'orig':'в оригинале', 'dub':'дубляж', 'any':''
+};
+
+/* Куда идти смотреть. Ссылки на главные страницы, не на конкретные фильмы. */
+const FUN_SOURCES = [
+  {name:'Inoriginal',  url:'https://inoriginal.cc/',            note:'в оригинале с субтитрами'},
+  {name:'YouTube',     url:'https://www.youtube.com/',          note:'ролики и фильмы'},
+  {name:'TED',         url:'https://www.ted.com/talks',         note:'лекции с субтитрами'},
+  {name:'Кинопоиск',   url:'https://www.kinopoisk.ru/',         note:'что вообще посмотреть'},
+  {name:'IMDb',        url:'https://www.imdb.com/',             note:'рейтинги и списки'}
+];
+
+let funFilter = 'todo';
+
+const FUN_FILTERS = [
+  {key:'todo',  label:'Не смотрел', test: i => !i.done},
+  {key:'done',  label:'Посмотрел',  test: i => !!i.done},
+  {key:'film',  label:'Фильмы',     test: i => i.kind === 'film' || i.kind === 'cartoon'},
+  {key:'series',label:'Сериалы',    test: i => i.kind === 'series'},
+  {key:'game',  label:'Игры',       test: i => i.kind === 'game'},
+  {key:'all',   label:'Всё',        test: () => true}
+];
+
+function setFunFilter(key){ funFilter = key; renderFun(); }
+
+function funTest(key){
+  const f = FUN_FILTERS.find(x => x.key === key);
+  return f ? f.test : (() => true);
+}
+
+/* «Что посмотреть?» — случайное из того, что ещё не смотрел */
+function pickRandomFun(){
+  const pool = DATA.fun.filter(i => !i.done);
+  if(pool.length === 0) return;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  funFilter = 'todo';
+  renderFun();
+  const card = document.querySelector(`.fun-card[data-id="${pick.id}"]`);
+  if(card){
+    document.querySelectorAll('.fun-card.picked').forEach(el => el.classList.remove('picked'));
+    card.classList.add('picked');
+    card.scrollIntoView({block:'center', behavior:'smooth'});
+  }
+}
+
+function toggleFunDone(id, evt){
+  const item = DATA.fun.find(i => i.id === id);
+  if(!item) return;
+  item.done = !item.done;
+  if(item.done && evt && evt.currentTarget) burstConfetti(evt.currentTarget);
+  saveData();
+  renderFun();
+  renderCounts();
+}
+
+function renderFunSources(){
+  const wrap = document.getElementById('fun-sources');
+  if(!wrap) return;
+  wrap.innerHTML = '<div class="fun-sources-title">где смотреть</div>' +
+    FUN_SOURCES.map(src=>{
+      const href = safeUrl(src.url);
+      if(!href) return '';
+      return `<a class="fun-source" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
+        <b>${escapeHtml(src.name)}</b><span>${escapeHtml(src.note)}</span></a>`;
+    }).join('');
+}
+
+function renderFun(){
+  renderFunSources();
+  const wrap = document.getElementById('list-fun');
+  if(!wrap) return;
+
+  const counts = {};
+  FUN_FILTERS.forEach(f => counts[f.key] = DATA.fun.filter(f.test).length);
+  const chips = document.getElementById('fun-chips');
+  if(chips){
+    chips.innerHTML = FUN_FILTERS.map(f=>
+      `<button class="status-chip${f.key===funFilter?' active':''}" onclick="setFunFilter('${f.key}')">` +
+      `${f.label}<span>${counts[f.key]}</span></button>`
+    ).join('');
+  }
+
+  wrap.innerHTML = '';
+  if(DATA.fun.length === 0){
+    wrap.innerHTML = '<div class="empty-note">Пока пусто. Добавь фильм, сериал или игру — ' +
+      'ссылку можно взять на любом сайте из списка выше.</div>';
+    return;
+  }
+
+  const list = DATA.fun.filter(funTest(funFilter))
+    .sort((a,b)=>{
+      if(!!a.done !== !!b.done) return a.done ? 1 : -1;
+      return (b.createdAt||0) - (a.createdAt||0);
+    });
+
+  if(list.length === 0){
+    const f = FUN_FILTERS.find(x => x.key === funFilter);
+    wrap.innerHTML = `<div class="empty-note">Ничего не подходит под фильтр «${f?f.label.toLowerCase():funFilter}».</div>`;
+    return;
+  }
+
+  list.forEach(item=>{
+    const href = safeUrl(item.link);
+    const lang = FUN_LANGS[item.lang] || '';
+    const card = document.createElement(href ? 'a' : 'div');
+    card.className = 'fun-card' + (item.done ? ' seen' : '');
+    card.dataset.id = item.id;
+    if(href){
+      card.href = href;
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+    }
+    card.innerHTML = `
+      <div class="fun-top">
+        <span class="fun-kind">${escapeHtml(FUN_KINDS[item.kind] || 'Другое')}</span>
+        ${lang ? `<span class="fun-lang">${escapeHtml(lang)}</span>` : ''}
+      </div>
+      <div class="fun-title">${escapeHtml(item.title)}</div>
+      ${item.note ? `<div class="fun-note">${escapeHtml(item.note)}</div>` : ''}
+      <div class="fun-actions">
+        <button class="fun-btn${item.done?' on':''}" title="${item.done?'Вернуть в список':'Отметить просмотренным'}"
+          onclick="event.preventDefault(); event.stopPropagation(); toggleFunDone('${item.id}', event)">
+          ${item.done ? 'посмотрел' : 'отметить'}
+        </button>
+        <button class="fun-btn" title="Изменить"
+          onclick="event.preventDefault(); event.stopPropagation(); openModal('fun','${item.id}')">править</button>
+        <button class="fun-btn del" title="Удалить"
+          onclick="event.preventDefault(); event.stopPropagation(); deleteItem('fun','${item.id}')">убрать</button>
+      </div>
+      ${href ? '<span class="fun-go">открыть →</span>' : '<span class="fun-go muted">ссылки нет</span>'}`;
+    wrap.appendChild(card);
+  });
+}
+
 function renderCounts(){
   document.getElementById('cnt-lessons').textContent = DATA.lessons.length;
   document.getElementById('cnt-homework').textContent = DATA.homework.filter(h=>!h.done).length;
@@ -2537,6 +2683,7 @@ function renderCounts(){
   document.getElementById('cnt-events').textContent = DATA.events.length;
   document.getElementById('cnt-goals').textContent = DATA.goals.filter(g=>goalPercent(g)<100).length;
   document.getElementById('cnt-notes').textContent = DATA.notes.length;
+  document.getElementById('cnt-fun').textContent = DATA.fun.filter(i=>!i.done).length;
 }
 
 function renderAll(){
@@ -2549,6 +2696,7 @@ function renderAll(){
   renderEvents();
   renderGoals();
   renderNotes();
+  renderFun();
   renderCounts();
   renderCalendar();
   syncBottomNav();
@@ -2663,7 +2811,7 @@ let undoTimer = null;
 
 const TYPE_TITLES_ACC = {
   lessons:'урок', homework:'задание', summatives:'суммативку',
-  events:'событие', goals:'цель', notes:'заметку'
+  events:'событие', goals:'цель', notes:'заметку', fun:'запись'
 };
 
 function deleteItem(type, id){
@@ -2773,6 +2921,27 @@ const FIELD_DEFS = {
     {key:'steps', label:'Шаги — по одному в строке', type:'steps'},
     {key:'progress', label:'Прогресс вручную, % (если шагов нет)', type:'number'}
   ],
+  fun: [
+    {key:'title', label:'Название', type:'text', required:true},
+    {key:'kind', label:'Что это', type:'select', default:'film', options:[
+      {value:'film',   label:'Фильм'},
+      {value:'series', label:'Сериал'},
+      {value:'cartoon',label:'Мультфильм'},
+      {value:'video',  label:'Видео'},
+      {value:'game',   label:'Игра'},
+      {value:'music',  label:'Музыка'},
+      {value:'book',   label:'Книга'},
+      {value:'other',  label:'Другое'}
+    ]},
+    {key:'link', label:'Ссылка', type:'text'},
+    {key:'lang', label:'Язык', type:'select', default:'orig-sub', options:[
+      {value:'orig-sub', label:'Оригинал с субтитрами'},
+      {value:'orig',     label:'Оригинал без субтитров'},
+      {value:'dub',      label:'Дубляж'},
+      {value:'any',      label:'Не важно'}
+    ]},
+    {key:'note', label:'Заметка', type:'textarea'}
+  ],
   notes: [
     {key:'title', label:'Заголовок', type:'text', required:true},
     {key:'subject', label:'Предмет (не обязательно)', type:'text', list:'subjects-datalist'},
@@ -2780,7 +2949,7 @@ const FIELD_DEFS = {
   ]
 };
 
-const TITLES = {lessons:'урок', homework:'задание', summatives:'суммативка', events:'событие', goals:'цель', notes:'заметка'};
+const TITLES = {lessons:'урок', homework:'задание', summatives:'суммативка', events:'событие', goals:'цель', notes:'заметка', fun:'что посмотреть'};
 
 
 /* ---- копия записи ---- */
@@ -3087,7 +3256,7 @@ applyTheme(storedTheme());
 /* ============ COMMAND PALETTE ============ */
 const PALETTE_TYPE_LABELS = {
   lessons: 'Урок', homework: 'Домашка', summatives: 'Суммативка',
-  events: 'Событие', goals: 'Цель', notes: 'Заметка'
+  events: 'Событие', goals: 'Цель', notes: 'Заметка', fun: 'Развлечение'
 };
 let paletteMatches = [];
 let paletteActiveIndex = -1;
@@ -3116,7 +3285,8 @@ const PALETTE_TYPES = [
   {key:'events',     label:'Мероприятия'},
   {key:'goals',      label:'Цели'},
   {key:'notes',      label:'Заметки'},
-  {key:'lessons',    label:'Уроки'}
+  {key:'lessons',    label:'Уроки'},
+  {key:'fun',        label:'Развлечения'}
 ];
 
 function setPaletteType(key){
@@ -3144,6 +3314,7 @@ function paletteSearch(query){
   DATA.goals.forEach(i => push('goals', i, i.title, i.desc,
     (i.steps||[]).map(st=>st.text).join(' ')));
   DATA.notes.forEach(i => push('notes', i, i.title, [i.subject, i.text].filter(Boolean).join(' · ')));
+  DATA.fun.forEach(i => push('fun', i, i.title, [FUN_KINDS[i.kind]||i.kind, i.note].filter(Boolean).join(' · '), i.link));
 
   const byType = paletteType === 'all' ? results : results.filter(r => r.type === paletteType);
   if(!q) return byType.slice(0, 10);
@@ -3369,7 +3540,7 @@ document.addEventListener('keydown', (e)=>{
   if(document.getElementById('overlay').classList.contains('open')) return;
   if(document.getElementById('palette-overlay').classList.contains('open')) return;
 
-  const views = ['dashboard','schedule','lessons','subjects','homework','summatives','events','goals','notes','calendar'];
+  const views = ['dashboard','schedule','lessons','subjects','homework','summatives','events','goals','notes','calendar','fun'];
   if(/^[1-9]$/.test(e.key)){ e.preventDefault(); goToView(views[Number(e.key)-1]); return; }
 
   switch(e.key){
