@@ -1923,3 +1923,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 :root{ --wl-bar:#2ca79b; --wl-sor:#d9534a; }
 :root[data-theme="light"]{ --wl-bar:#0f9e8f; --wl-sor:#d1483a; }
+
+.repeat-mark{
+  display:inline-block; margin-left:7px;
+  font-size:11px; color: var(--gold);
+  vertical-align:1px;
+}
