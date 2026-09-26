@@ -1291,7 +1291,10 @@ function renderHomework(){
     row.className = 'item-row';
     row.innerHTML = `
       <div class="check ${item.done?'done':''}" onclick="toggleDone('homework','${item.id}', event)"></div>
-      <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
+      <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}${
+        item.repeat && item.repeat !== 'none'
+          ? `<span class="repeat-mark" title="Повторяется ${escapeHtml(REPEAT_LABELS[item.repeat]||'')}">↻</span>` : ''
+      }</div>
         <div class="item-meta">${escapeHtml(item.subject||'')}</div>${stepsHtml(item)}</div>
       ${item.minutes ? `<span class="tag mins">${escapeHtml(formatMinutes(Number(item.minutes)))}</span>` : '<span></span>'}
       ${priorityTagHtml(item.priority)}
@@ -2386,12 +2389,45 @@ function renderAll(){
 }
 
 /* ============ CRUD ============ */
+/* ---- повторяющиеся задания ----
+   Закрытое задание остаётся в истории, а рядом появляется следующее.
+   Поэтому «снять галочку» ничего не ломает: копия уже создана и
+   повторно не создастся — проверяем, нет ли её уже. */
+
+const REPEAT_LABELS = {weekly:'каждую неделю', biweekly:'раз в две недели', lesson:'к каждому уроку'};
+
+function nextRepeatDate(item){
+  if(!item.due) return null;
+  if(item.repeat === 'weekly')   return shiftDate(item.due, 7);
+  if(item.repeat === 'biweekly') return shiftDate(item.due, 14);
+  if(item.repeat === 'lesson')   return nextLessonDate(item.subject, item.due);
+  return null;
+}
+
+function spawnRepeat(item){
+  const next = nextRepeatDate(item);
+  if(!next) return;
+  const exists = DATA.homework.some(h =>
+    h.id !== item.id && h.title === item.title && (h.subject||'') === (item.subject||'') && h.due === next);
+  if(exists) return;
+
+  DATA.homework.push({
+    id: uid(), createdAt: Date.now(), done: false,
+    title: item.title, subject: item.subject || '', due: next,
+    priority: item.priority || 'normal', minutes: item.minutes || '',
+    repeat: item.repeat, notes: item.notes || '',
+    // шаги переезжают снятыми — это новый раз
+    steps: Array.isArray(item.steps) ? item.steps.map(st => ({text: st.text, done: false})) : []
+  });
+}
+
 function toggleDone(type, id, evt){
   const it = DATA[type].find(x=>x.id===id);
   if(!it) return;
   it.done = !it.done;
   if(it.done){
     logActivity();
+    if(type === 'homework' && it.repeat && it.repeat !== 'none') spawnRepeat(it);
     if(evt && evt.currentTarget) burstConfetti(evt.currentTarget);
   }
   saveData();
@@ -2539,6 +2575,12 @@ const FIELD_DEFS = {
     {key:'subject', label:'Предмет', type:'text', list:'subjects-datalist'},
     {key:'priority', label:'Приоритет', type:'select', options:[{value:'normal',label:'Обычный'},{value:'high',label:'Высокий'},{value:'low',label:'Низкий'}], default:'normal'},
     {key:'due', label:'Срок сдачи', type:'date'},
+    {key:'repeat', label:'Повторять', type:'select', default:'none', options:[
+      {value:'none',    label:'Не повторять'},
+      {value:'weekly',  label:'Каждую неделю'},
+      {value:'biweekly',label:'Раз в две недели'},
+      {value:'lesson',  label:'К каждому уроку по предмету'}
+    ]},
     {key:'minutes', label:'Сколько займёт, минут', type:'number'},
     {key:'steps', label:'Шаги — по одному в строке', type:'steps'},
     {key:'notes', label:'Заметки', type:'textarea'}
