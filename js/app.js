@@ -2616,6 +2616,28 @@ const FIELD_DEFS = {
 
 const TITLES = {lessons:'урок', homework:'задание', summatives:'суммативка', events:'событие', goals:'цель', notes:'заметка'};
 
+
+/* ---- копия записи ---- */
+function duplicateItem(type, id){
+  const src = DATA[type].find(x => x.id === id);
+  if(!src) return;
+
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.id = uid();
+  copy.createdAt = Date.now();
+  copy.done = false;
+  copy.title = (src.title || 'Без названия') + ' (копия)';
+  // шаги и баллы начинаем заново — это другая работа
+  if(Array.isArray(copy.steps)) copy.steps = copy.steps.map(st => ({text: st.text, done: false}));
+  if('score' in copy) copy.score = null;
+
+  const index = DATA[type].findIndex(x => x.id === id);
+  DATA[type].splice(index + 1, 0, copy);
+  saveData();
+  renderAll();
+  openModal(type, copy.id);      // сразу открываем копию, чтобы поправить
+}
+
 function openModal(type, id, prefill){
   editingType = type;
   editingId = id || null;
@@ -2643,6 +2665,7 @@ function openModal(type, id, prefill){
       return `<div class="field"><label>${f.label}</label><input data-key="${f.key}" type="${f.type}"${listAttr} value="${escapeHtml(String(val))}"></div>`;
     }).join('') +
     `<div class="modal-actions">
+      ${existing ? `<button class="btn-ghost" onclick="duplicateItem('${type}','${id}')">Дублировать</button>` : ''}
       <button class="btn-secondary" onclick="closeModal()">Отмена</button>
       <button class="btn-primary" onclick="submitModal()">Сохранить</button>
     </div>`;
