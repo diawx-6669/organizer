@@ -1,7 +1,7 @@
 /* Кэш приложения: сайт открывается и работает без интернета.
    Данные и так лежат в localStorage, так что офлайн ничего не теряется. */
 
-const CACHE = 'organizer-v4';
+const CACHE = 'organizer-v5';
 const ASSETS = [
   './',
   './index.html',
