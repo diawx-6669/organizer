@@ -1878,3 +1878,48 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (max-width:520px){
   .teacher-row{ grid-template-columns: 1fr; gap:5px; }
 }
+
+/* ============ НАГРУЗКА ПО ДНЯМ ============ */
+.workload{
+  border:1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding:16px 18px 12px;
+  margin-bottom:18px;
+}
+.workload-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+.workload-head strong{ display:block; font-family:'Space Grotesk'; font-size:13.5px; font-weight:600; }
+.workload-head small{ display:block; font-size:10.5px; color:var(--text-faint); margin-top:3px; }
+.wl-legend{ display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text-faint); }
+.wl-swatch{ width:9px; height:9px; border-radius:2px; background: var(--wl-bar); }
+.wl-swatch.sor{ background: var(--wl-sor); margin-left:6px; }
+
+.wl-grid{ display:flex; gap:4px; align-items:flex-end; }
+.wl-col{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:5px; }
+.wl-bar-wrap{
+  width:100%; height:64px;
+  display:flex; align-items:flex-end;
+  background: var(--surface-2);
+  border-radius:4px;
+  overflow:hidden;
+}
+.wl-col.weekend .wl-bar-wrap{ background: var(--surface-3); opacity:.7; }
+.wl-bar{
+  width:100%;
+  background: var(--wl-bar);
+  border-radius:4px 4px 0 0;
+  transition: height .25s ease;
+}
+/* день без домашки, но с СОР */
+.wl-dot{
+  width:5px; height:5px; border-radius:50%;
+  background: var(--wl-sor);
+  margin:0 auto 5px;
+}
+.wl-bar-wrap{ justify-content:center; }
+.wl-bar.has-sor{ background: var(--wl-sor); }
+.wl-day{ font-size:9.5px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.tag.mins{ color: var(--text-faint); }
+
+:root{ --wl-bar:#2ca79b; --wl-sor:#d9534a; }
+:root[data-theme="light"]{ --wl-bar:#0f9e8f; --wl-sor:#d1483a; }
