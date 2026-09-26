@@ -22,7 +22,22 @@ const BASE_SUBJECTS = [
 let openSubjects = new Set();
 
 /* ============ SCHEDULE (расписание) ============ */
-const SCHED_TIMES = ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00"];
+/* Время уроков и длина урока взяты приблизительно: в школьном приложении
+   блоки не подписаны временем, видна только сетка часов. Поэтому и то,
+   и другое можно поправить — правки лежат в DATA. */
+const SCHED_TIMES_DEFAULT = ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00"];
+const SLOT_MINUTES_DEFAULT = 40;
+
+function schedTimes(){
+  const custom = DATA.schedTimes;
+  return (Array.isArray(custom) && custom.length === SCHED_TIMES_DEFAULT.length)
+    ? custom : SCHED_TIMES_DEFAULT;
+}
+
+function slotLength(){
+  const n = Number(DATA.slotMinutes);
+  return Number.isFinite(n) && n >= 20 && n <= 120 ? n : SLOT_MINUTES_DEFAULT;
+}
 const SCHED_DAY_KEYS = ["Пн","Вт","Ср","Чт","Пт"];
 
 const SCHED_RUS = {
@@ -69,7 +84,7 @@ const SCHED_ROOMS = {
   "Physical and Health Education":"Gym"
 };
 
-// SCHED_DATA[pattern][dayKey] = subject per SCHED_TIMES slot, in order
+// SCHED_DATA[pattern][dayKey] = subject per time slot, in order
 const SCHED_DATA = {
   A: {
     "Пн": ["Mathematics","Physical and Health Education","Arts","Homeroom","English Language Acquisition","Kazakh Language and Literature","Information and communication technology","Homeroom"],
@@ -161,7 +176,7 @@ function renderSchedule(){
     grid.appendChild(h);
   });
 
-  SCHED_TIMES.forEach((time, slotIdx)=>{
+  schedTimes().forEach((time, slotIdx)=>{
     const tcell = document.createElement('div');
     tcell.className = 'sched-time';
     tcell.textContent = time;
@@ -222,7 +237,6 @@ function renderSchedule(){
 
 
 /* ---- уроки на конкретную дату ---- */
-const SCHED_SLOT_MINUTES = 40;
 
 function schedLessonsOn(date){
   const key = SCHED_DAY_KEYS[(date.getDay()+6)%7];
@@ -230,7 +244,7 @@ function schedLessonsOn(date){
   const pattern = schedPatternFor(schedGetMonday(date));
   return SCHED_DATA[pattern][key].map((subj, idx)=>({
     slot: idx,
-    time: SCHED_TIMES[idx],
+    time: schedTimes()[idx],
     subject: SCHED_RUS[subj] || subj,
     room: subjectRoom(SCHED_RUS[subj] || subj, SCHED_ROOMS[subj]),
     teacher: subjectTeacher(SCHED_RUS[subj] || subj),
@@ -248,7 +262,7 @@ function schedNowInfo(lessons, now){
   const mins = now.getHours()*60 + now.getMinutes();
   let current = null, next = null;
   lessons.forEach(l=>{
-    const from = slotMinutes(l.time), to = from + SCHED_SLOT_MINUTES;
+    const from = slotMinutes(l.time), to = from + slotLength();
     if(mins >= from && mins < to) current = {...l, leftMin: to - mins};
     else if(mins < from && !next) next = {...l, inMin: from - mins};
   });
@@ -543,12 +557,12 @@ function collectLessonEvents(){
         const date = new Date(monday);
         date.setDate(monday.getDate() + dayIdx);
         const dateStr = schedDateKey(date);
-        const time = SCHED_TIMES[slot];
+        const time = schedTimes()[slot];
         const room = SCHED_ROOMS[subj];
         events.push({
           uid: `lesson-${pattern}-${dayIdx}-${slot}`,
           start: icsLocalStamp(dateStr, time),
-          end:   icsLocalStamp(dateStr, addMinutesToTime(time, SCHED_SLOT_MINUTES)),
+          end:   icsLocalStamp(dateStr, addMinutesToTime(time, slotLength())),
           summary: SCHED_RUS[subj] || subj,
           location: room || '',
           teacher: subjectTeacher(SCHED_RUS[subj] || subj),
@@ -1106,7 +1120,7 @@ function renderTodayLessons(){
     if(sor) marks.push('<span class="today-mark sor">СОР</span>');
     if(hw)  marks.push('<span class="today-mark">домашка ' + hw + '</span>');
     const isNow = current && current.slot === l.slot;
-    const past = !isNow && slotMinutes(l.time) + SCHED_SLOT_MINUTES <= now.getHours()*60 + now.getMinutes();
+    const past = !isNow && slotMinutes(l.time) + slotLength() <= now.getHours()*60 + now.getMinutes();
     return '<div class="today-row' + (isNow?' now':'') + (past?' past':'') + '">' +
       '<span class="today-time">' + l.time + '</span>' +
       '<span class="today-subject">' + escapeHtml(l.subject) + '</span>' +
@@ -1484,6 +1498,51 @@ function snoozeBtnHtml(type, id){
     onclick="openSnooze('${type}','${id}', event)">${SNOOZE_ICON}</button>`;
 }
 
+
+
+/* ---- правка времени уроков ---- */
+function openTimesEditor(){
+  const times = schedTimes();
+  const rows = times.map((t, i)=>
+    `<div class="time-row"><span>${i+1}-й урок</span>
+      <input data-slot="${i}" type="time" value="${escapeHtml(t)}"></div>`
+  ).join('');
+
+  const box = document.getElementById('modal-box');
+  box.innerHTML = `<h3>Время уроков</h3>
+    <p class="import-note">В школьном расписании блоки не подписаны временем, поэтому
+      сейчас стоит примерная сетка. Поправь, если звонки другие.</p>
+    <div class="time-list">${rows}</div>
+    <div class="field"><label>Длительность урока, минут</label>
+      <input id="slot-minutes" type="number" min="20" max="120" value="${slotLength()}"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="resetTimes()">Сбросить</button>
+      <button class="btn-secondary" onclick="closeModal()">Отмена</button>
+      <button class="btn-primary" onclick="saveTimes()">Сохранить</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+
+function saveTimes(){
+  const box = document.getElementById('modal-box');
+  const times = [];
+  box.querySelectorAll('[data-slot]').forEach(input=>{
+    times[Number(input.dataset.slot)] = /^\d{2}:\d{2}$/.test(input.value) ? input.value : SCHED_TIMES_DEFAULT[Number(input.dataset.slot)];
+  });
+  DATA.schedTimes = times;
+  DATA.slotMinutes = Number(document.getElementById('slot-minutes').value) || SLOT_MINUTES_DEFAULT;
+  saveData();
+  renderAll();
+  closeModal();
+}
+
+function resetTimes(){
+  delete DATA.schedTimes;
+  delete DATA.slotMinutes;
+  saveData();
+  renderAll();
+  closeModal();
+}
 
 /* ============ УЧИТЕЛЯ И КАБИНЕТЫ ============ */
 /* Кабинеты из расписания лежат в SCHED_ROOMS и меняться не могут.
