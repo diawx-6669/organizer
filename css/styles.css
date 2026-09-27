@@ -2071,3 +2071,14 @@ a.fun-card:hover{ border-color: var(--gold-soft); transform: translateY(-2px); b
 }
 .fun-progress button:hover{ color: var(--gold); border-color: var(--gold-soft); }
 .fun-progress button.season{ width:auto; padding:0 8px; font-size:10px; }
+
+/* ============ ОЦЕНКА РАЗВЛЕЧЕНИЙ ============ */
+.fun-stars{ display:flex; gap:1px; }
+.fun-star{
+  border:none; background:none; cursor:pointer;
+  padding:0 2px; font-size:14px; line-height:1;
+  color: var(--line-strong);
+  transition: color .1s ease, transform .1s ease;
+}
+.fun-star:hover{ transform: scale(1.15); }
+.fun-star.on{ color: var(--tab1); }
