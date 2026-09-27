@@ -796,7 +796,18 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
     position:sticky; top:0; z-index:55;
     flex-shrink:0;
   }
-  .mobile-topbar-title{ font-family:'Space Grotesk'; font-size:14px; font-weight:600; color:var(--text); }
+  .mobile-topbar-title{
+    display:flex; flex-direction:column; align-items:center; gap:1px;
+    min-width:0; flex:1;
+    font-family:'Space Grotesk'; color:var(--text);
+  }
+  .mobile-topbar-title b{
+    font-size:13.5px; font-weight:600;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .mobile-topbar-title small{
+    font-family:'Inter',sans-serif; font-size:9.5px; font-weight:400; color:var(--gold);
+  }
   .mobile-icon-btn{
     width:36px; height:36px; flex-shrink:0;
     display:grid; place-items:center;
