@@ -3472,12 +3472,69 @@ document.getElementById('palette-overlay').addEventListener('click', (e) => {
 });
 
 /* ============ POMODORO TIMER ============ */
-const POMODORO_DURATIONS = { focus: 25*60, short: 5*60, long: 15*60 };
+const POMODORO_DEFAULTS = { focus: 25, short: 5, long: 15 };   // в минутах
+
+/* Длительности можно поменять под себя, они лежат в DATA. */
+function pomodoroMinutes(mode){
+  const custom = (DATA.pomodoro && Number(DATA.pomodoro[mode])) || 0;
+  return custom >= 1 && custom <= 180 ? custom : POMODORO_DEFAULTS[mode];
+}
+function pomodoroSeconds(mode){ return pomodoroMinutes(mode) * 60; }
+
+/* сколько подходов «учёбы» закрыто сегодня */
+function pomodoroTodayCount(){
+  const log = DATA.pomodoroLog || {};
+  return log[schedDateKey(new Date())] || 0;
+}
+function pomodoroLogRound(){
+  DATA.pomodoroLog = DATA.pomodoroLog || {};
+  const key = schedDateKey(new Date());
+  DATA.pomodoroLog[key] = (DATA.pomodoroLog[key] || 0) + 1;
+  saveData();
+}
 const POMODORO_LABELS = { focus: 'Учёба', short: 'Короткий перерыв', long: 'Длинный перерыв' };
 let pomodoroMode = 'focus';
-let pomodoroRemaining = POMODORO_DURATIONS.focus;
+let pomodoroRemaining = POMODORO_DEFAULTS.focus * 60;
 let pomodoroRunning = false;
 let pomodoroTimer = null;
+
+
+/* ---- свои интервалы ---- */
+function openPomodoroSettings(){
+  const box = document.getElementById('modal-box');
+  box.innerHTML = `<h3>Таймер фокуса</h3>
+    <div class="field"><label>Учёба, минут</label>
+      <input id="pd-focus" type="number" min="1" max="180" value="${pomodoroMinutes('focus')}"></div>
+    <div class="field"><label>Короткий перерыв, минут</label>
+      <input id="pd-short" type="number" min="1" max="180" value="${pomodoroMinutes('short')}"></div>
+    <div class="field"><label>Длинный перерыв, минут</label>
+      <input id="pd-long" type="number" min="1" max="180" value="${pomodoroMinutes('long')}"></div>
+    <p class="import-note">Закрытые подходы «учёбы» считаются по дням — видно прямо в таймере.</p>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="resetPomodoro()">Сбросить</button>
+      <button class="btn-secondary" onclick="closeModal()">Отмена</button>
+      <button class="btn-primary" onclick="savePomodoro()">Сохранить</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+
+function savePomodoro(){
+  DATA.pomodoro = {
+    focus: Number(document.getElementById('pd-focus').value) || POMODORO_DEFAULTS.focus,
+    short: Number(document.getElementById('pd-short').value) || POMODORO_DEFAULTS.short,
+    long:  Number(document.getElementById('pd-long').value)  || POMODORO_DEFAULTS.long
+  };
+  saveData();
+  pomodoroSetMode(pomodoroMode);
+  closeModal();
+}
+
+function resetPomodoro(){
+  delete DATA.pomodoro;
+  saveData();
+  pomodoroSetMode(pomodoroMode);
+  closeModal();
+}
 
 function pomodoroFormat(sec){
   const m = Math.floor(sec/60), s = sec%60;
@@ -3489,13 +3546,23 @@ function pomodoroRender(){
   document.getElementById('pomodoro-mode').textContent = POMODORO_LABELS[pomodoroMode];
   document.getElementById('pomodoro-startpause').textContent = pomodoroRunning ? 'Пауза' : 'Старт';
   document.getElementById('pomodoro').classList.toggle('running', pomodoroRunning);
+  const rounds = document.getElementById('pomodoro-rounds');
+  if(rounds){
+    const n = pomodoroTodayCount();
+    rounds.textContent = n ? `сегодня ${n} ${plural(n,'подход','подхода','подходов')}` : 'сегодня ещё ни одного';
+  }
+  const modes = document.querySelectorAll('.pomodoro-modes button[data-mode]');
+  modes.forEach(btn=>{
+    btn.textContent = pomodoroMinutes(btn.dataset.mode) + ' мин';
+    btn.classList.toggle('active', btn.dataset.mode === pomodoroMode);
+  });
 }
 function pomodoroTogglePanel(){
   document.getElementById('pomodoro').classList.toggle('open');
 }
 function pomodoroSetMode(mode){
   pomodoroMode = mode;
-  pomodoroRemaining = POMODORO_DURATIONS[mode];
+  pomodoroRemaining = pomodoroSeconds(mode);
   pomodoroPause();
   pomodoroRender();
 }
@@ -3528,10 +3595,11 @@ function pomodoroPause(){
 }
 function pomodoroReset(){
   pomodoroPause();
-  pomodoroRemaining = POMODORO_DURATIONS[pomodoroMode];
+  pomodoroRemaining = pomodoroSeconds(pomodoroMode);
   pomodoroRender();
 }
 function pomodoroNotifyDone(){
+  if(pomodoroMode === 'focus') pomodoroLogRound();
   burstConfetti(document.querySelector('.pomodoro-toggle'));
   if('Notification' in window && Notification.permission === 'granted'){
     new Notification(pomodoroMode === 'focus' ? '25 минут прошли — можно отдохнуть' : 'Перерыв закончился');
