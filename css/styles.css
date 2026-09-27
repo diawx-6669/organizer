@@ -2053,3 +2053,21 @@ a.fun-card:hover{ border-color: var(--gold-soft); transform: translateY(-2px); b
 @media (max-width:520px){
   .fun-grid{ grid-template-columns: 1fr; }
 }
+
+/* ============ ПРОГРЕСС ПО СЕРИЯМ ============ */
+.fun-progress{
+  display:flex; align-items:center; gap:6px;
+  padding:6px 8px;
+  border:1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.fun-progress span{ flex:1; font-size:11px; color: var(--text-dim); text-align:center; }
+.fun-progress button{
+  width:22px; height:22px; flex-shrink:0;
+  display:grid; place-items:center;
+  border:1px solid var(--line); border-radius:6px;
+  background: var(--surface-3); color: var(--text-dim);
+  font-size:13px; line-height:1; cursor:pointer;
+}
+.fun-progress button:hover{ color: var(--gold); border-color: var(--gold-soft); }
+.fun-progress button.season{ width:auto; padding:0 8px; font-size:10px; }
