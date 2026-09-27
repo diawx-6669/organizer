@@ -2597,6 +2597,35 @@ function toggleFunDone(id, evt){
   renderCounts();
 }
 
+
+/* ============ СЕРИИ: КАКАЯ СЕЙЧАС ============ */
+/* У сериала отмечать «посмотрел» целиком бессмысленно — считаем серии. */
+
+function funProgressText(item){
+  if(item.kind !== 'series') return '';
+  const season = Number(item.season) || 1;
+  const ep = Number(item.episode) || 0;
+  return ep ? `сезон ${season}, серия ${ep}` : `сезон ${season}`;
+}
+
+function bumpEpisode(id, delta){
+  const item = DATA.fun.find(i => i.id === id);
+  if(!item) return;
+  item.season = Number(item.season) || 1;
+  item.episode = Math.max(0, (Number(item.episode) || 0) + delta);
+  saveData();
+  renderFun();
+}
+
+function nextSeason(id){
+  const item = DATA.fun.find(i => i.id === id);
+  if(!item) return;
+  item.season = (Number(item.season) || 1) + 1;
+  item.episode = 0;
+  saveData();
+  renderFun();
+}
+
 function renderFunSources(){
   const wrap = document.getElementById('fun-sources');
   if(!wrap) return;
@@ -2661,6 +2690,15 @@ function renderFun(){
       </div>
       <div class="fun-title">${escapeHtml(item.title)}</div>
       ${item.note ? `<div class="fun-note">${escapeHtml(item.note)}</div>` : ''}
+      ${item.kind === 'series' ? `<div class="fun-progress">
+        <button onclick="event.preventDefault(); event.stopPropagation(); bumpEpisode('${item.id}', -1)"
+          title="Назад на серию">−</button>
+        <span>${escapeHtml(funProgressText(item))}</span>
+        <button onclick="event.preventDefault(); event.stopPropagation(); bumpEpisode('${item.id}', 1)"
+          title="Следующая серия">+</button>
+        <button class="season" onclick="event.preventDefault(); event.stopPropagation(); nextSeason('${item.id}')"
+          title="Перейти к следующему сезону">сезон +</button>
+      </div>` : ''}
       <div class="fun-actions">
         <button class="fun-btn${item.done?' on':''}" title="${item.done?'Вернуть в список':'Отметить просмотренным'}"
           onclick="event.preventDefault(); event.stopPropagation(); toggleFunDone('${item.id}', event)">
@@ -2934,6 +2972,8 @@ const FIELD_DEFS = {
       {value:'other',  label:'Другое'}
     ]},
     {key:'link', label:'Ссылка', type:'text'},
+    {key:'season', label:'Сезон (для сериала)', type:'number', default:1},
+    {key:'episode', label:'На какой серии остановился', type:'number'},
     {key:'lang', label:'Язык', type:'select', default:'orig-sub', options:[
       {value:'orig-sub', label:'Оригинал с субтитрами'},
       {value:'orig',     label:'Оригинал без субтитров'},
