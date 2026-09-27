@@ -2098,3 +2098,17 @@ a.fun-card:hover{ border-color: var(--gold-soft); transform: translateY(-2px); b
 .pomodoro-modes button.active{
   color: var(--gold); border-color: var(--gold-soft); background: var(--gold-soft);
 }
+
+/* ============ ФОРМАТИРОВАНИЕ ЗАМЕТОК ============ */
+.goal-desc.rich p{ margin: 0 0 6px; }
+.goal-desc.rich p:last-child{ margin-bottom:0; }
+.goal-desc.rich b{ color: var(--text); font-weight:600; }
+.goal-desc.rich i{ font-style: italic; }
+.goal-desc.rich ul{ margin: 4px 0 6px; padding-left: 18px; }
+.goal-desc.rich li{ margin-bottom: 2px; }
+.section-hint code{
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  padding: 1px 5px; border-radius: 4px;
+  background: var(--surface-2); border: 1px solid var(--line);
+}
