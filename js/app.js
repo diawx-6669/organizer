@@ -2488,6 +2488,43 @@ function renderSummatives(){
 
 /* ============ NOTES (Заметки) ============ */
 /* закреплённые заметки всегда наверху */
+
+/* ============ ПРОСТОЕ ФОРМАТИРОВАНИЕ ЗАМЕТОК ============ */
+/* Сначала экранируем весь текст, и только потом расставляем разметку —
+   иначе вписанный в заметку html выполнился бы. */
+
+function renderRichText(raw){
+  const safe = escapeHtml(String(raw || ''));
+  if(!safe.trim()) return '';
+
+  const inline = text => text
+    .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
+    .replace(/(^|[\s(])_([^_\n]+)_(?=[\s.,!?)]|$)/g, '$1<i>$2</i>')
+    .replace(/(https?:\/\/[^\s<]+)/g, (m)=>{
+      const href = safeUrl(m);
+      return href
+        ? `<a class="item-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${m}</a>`
+        : m;
+    });
+
+  const out = [];
+  let list = null;
+
+  safe.split('\n').forEach(line=>{
+    const bullet = line.match(/^\s*[-•*]\s+(.*)$/);
+    if(bullet){
+      list = list || [];
+      list.push('<li>' + inline(bullet[1]) + '</li>');
+      return;
+    }
+    if(list){ out.push('<ul>' + list.join('') + '</ul>'); list = null; }
+    if(line.trim()) out.push('<p>' + inline(line) + '</p>');
+  });
+  if(list) out.push('<ul>' + list.join('') + '</ul>');
+
+  return out.join('');
+}
+
 function togglePin(id){
   const note = DATA.notes.find(n=>n.id===id);
   if(!note) return;
@@ -2515,7 +2552,7 @@ function renderNotes(){
         <div>
           <div class="goal-title">${escapeHtml(item.title)}</div>
           ${item.subject? `<div class="note-subject">${escapeHtml(item.subject)}</div>`:''}
-          ${item.text? `<div class="goal-desc">${escapeHtml(item.text)}</div>`:''}
+          ${item.text? `<div class="goal-desc rich">${renderRichText(item.text)}</div>`:''}
         </div>
         <div class="row-actions">
           <button class="icon-btn pin-btn${item.pinned?' on':''}" aria-label="${item.pinned?'Открепить':'Закрепить'}"
