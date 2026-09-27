@@ -330,10 +330,12 @@
       <button onclick="pomodoroReset()">Сброс</button>
     </div>
     <div class="pomodoro-modes">
-      <button onclick="pomodoroSetMode('focus')">25 мин</button>
-      <button onclick="pomodoroSetMode('short')">5 мин</button>
-      <button onclick="pomodoroSetMode('long')">15 мин</button>
+      <button data-mode="focus" onclick="pomodoroSetMode('focus')">25 мин</button>
+      <button data-mode="short" onclick="pomodoroSetMode('short')">5 мин</button>
+      <button data-mode="long" onclick="pomodoroSetMode('long')">15 мин</button>
     </div>
+    <div class="pomodoro-rounds" id="pomodoro-rounds"></div>
+    <button class="pomodoro-settings" onclick="openPomodoroSettings()">настроить</button>
   </div>
 </div>
 

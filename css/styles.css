@@ -2082,3 +2082,19 @@ a.fun-card:hover{ border-color: var(--gold-soft); transform: translateY(-2px); b
 }
 .fun-star:hover{ transform: scale(1.15); }
 .fun-star.on{ color: var(--tab1); }
+
+/* ============ ТАЙМЕР: ПОДХОДЫ И НАСТРОЙКИ ============ */
+.pomodoro-rounds{
+  margin-top:10px; text-align:center;
+  font-size:10.5px; color: var(--text-faint);
+}
+.pomodoro-settings{
+  width:100%; margin-top:8px;
+  padding:6px; border-radius: var(--radius-sm);
+  border:1px solid var(--line); background:none;
+  color: var(--text-faint); font-size:10.5px; cursor:pointer;
+}
+.pomodoro-settings:hover{ color: var(--text); border-color: var(--line-strong); }
+.pomodoro-modes button.active{
+  color: var(--gold); border-color: var(--gold-soft); background: var(--gold-soft);
+}
