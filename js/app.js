@@ -2562,6 +2562,7 @@ const FUN_FILTERS = [
   {key:'film',  label:'Фильмы',     test: i => i.kind === 'film' || i.kind === 'cartoon'},
   {key:'series',label:'Сериалы',    test: i => i.kind === 'series'},
   {key:'game',  label:'Игры',       test: i => i.kind === 'game'},
+  {key:'fav',   label:'Любимое',    test: i => (Number(i.rating)||0) >= 4},
   {key:'all',   label:'Всё',        test: () => true}
 ];
 
@@ -2626,6 +2627,27 @@ function nextSeason(id){
   renderFun();
 }
 
+
+/* ---- оценка от 1 до 5 ---- */
+function setFunRating(id, value, evt){
+  if(evt){ evt.preventDefault(); evt.stopPropagation(); }
+  const item = DATA.fun.find(i => i.id === id);
+  if(!item) return;
+  // повторный клик по той же звезде снимает оценку
+  item.rating = (Number(item.rating) === value) ? 0 : value;
+  saveData();
+  renderFun();
+}
+
+function funStarsHtml(item){
+  const rating = Number(item.rating) || 0;
+  const stars = [1,2,3,4,5].map(n=>
+    `<button class="fun-star${n <= rating ? ' on' : ''}" title="${n} из 5"
+      onclick="setFunRating('${item.id}', ${n}, event)">★</button>`
+  ).join('');
+  return `<div class="fun-stars" role="group" aria-label="Оценка">${stars}</div>`;
+}
+
 function renderFunSources(){
   const wrap = document.getElementById('fun-sources');
   if(!wrap) return;
@@ -2663,6 +2685,11 @@ function renderFun(){
   const list = DATA.fun.filter(funTest(funFilter))
     .sort((a,b)=>{
       if(!!a.done !== !!b.done) return a.done ? 1 : -1;
+      // в «Любимом» сверху то, что оценено выше
+      if(funFilter === 'fav'){
+        const d = (Number(b.rating)||0) - (Number(a.rating)||0);
+        if(d !== 0) return d;
+      }
       return (b.createdAt||0) - (a.createdAt||0);
     });
 
@@ -2699,6 +2726,7 @@ function renderFun(){
         <button class="season" onclick="event.preventDefault(); event.stopPropagation(); nextSeason('${item.id}')"
           title="Перейти к следующему сезону">сезон +</button>
       </div>` : ''}
+      ${item.done ? funStarsHtml(item) : ''}
       <div class="fun-actions">
         <button class="fun-btn${item.done?' on':''}" title="${item.done?'Вернуть в список':'Отметить просмотренным'}"
           onclick="event.preventDefault(); event.stopPropagation(); toggleFunDone('${item.id}', event)">
