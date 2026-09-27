@@ -906,6 +906,7 @@ function renderDashboard(){
   }
 
   renderUrgent();
+  renderMobileTitle();
   renderTodayLessons();
   renderWorkload();
   renderActivityHeatmap();
@@ -1091,6 +1092,27 @@ function renderUrgent(){
     parts.map(p => `<span class="urgent-chip ${p.cls}"><b>${p.n}</b> ${plural(p.n, ...p.word)}${p.tail}</span>`).join('') +
     (minutes ? `<span class="urgent-time">≈ ${escapeHtml(formatMinutes(minutes))} работы</span>` : '') +
     `<button class="urgent-go" onclick="goToView('homework')">Открыть</button>`;
+}
+
+
+/* ---- шапка на телефоне: что сейчас ----
+   Место в шапке одно и занято названием приложения, хотя оно и так
+   написано в меню. Полезнее видеть текущий урок. */
+function renderMobileTitle(){
+  const el = document.getElementById('mobile-topbar-title');
+  if(!el) return;
+
+  const now = new Date();
+  const lessons = schedLessonsOn(now).filter(l => !l.isHomeroom);
+  const {current, next} = lessons.length ? schedNowInfo(lessons, now) : {current:null, next:null};
+
+  if(current){
+    el.innerHTML = `<b>${escapeHtml(current.subject)}</b><small>осталось ${current.leftMin} мин</small>`;
+  } else if(next){
+    el.innerHTML = `<b>${escapeHtml(next.subject)}</b><small>в ${escapeHtml(next.time)}</small>`;
+  } else {
+    el.innerHTML = '<b>Мой органайзер</b>';
+  }
 }
 
 /* ---- блок "уроки на сегодня" ---- */
@@ -3647,7 +3669,7 @@ function pomodoroNotifyDone(){
 pomodoroRender();
 
 /* статус текущего урока обновляем раз в минуту */
-setInterval(renderTodayLessons, 60*1000);
+setInterval(()=>{ renderTodayLessons(); renderMobileTitle(); }, 60*1000);
 
 /* ---- быстрый ввод: Enter добавляет, подсказка обновляется на лету ---- */
 (function(){
