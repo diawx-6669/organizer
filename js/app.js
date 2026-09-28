@@ -1533,10 +1533,18 @@ function openSnooze(type, id, event){
   if(lesson) options.unshift({label: 'К следующему уроку', date: lesson});
 
   const menu = ensureSnoozeMenu();
-  menu.innerHTML = options.map(o=>
-    `<button onclick="applySnooze('${o.date}')">
-      <span>${escapeHtml(o.label)}</span><em>${escapeHtml(fmtDate(o.date))}</em></button>`
-  ).join('');
+  menu.innerHTML = options.map(o=>{
+    // подсказываем, что уже стоит на этот день, чтобы не свалить всё в один
+    const load = workloadFor(o.date);
+    const marks = [];
+    if(load.sor) marks.push('СОР');
+    if(load.minutes) marks.push(formatMinutes(load.minutes));
+    const busy = load.sor || load.minutes >= 120;
+    return `<button onclick="applySnooze('${o.date}')">
+      <span>${escapeHtml(o.label)}</span>
+      <em class="${busy ? 'busy' : ''}">${escapeHtml(fmtDate(o.date))}${
+        marks.length ? ' · ' + escapeHtml(marks.join(', ')) : ''}</em></button>`;
+  }).join('');
 
   const rect = event.currentTarget.getBoundingClientRect();
   menu.classList.add('open');

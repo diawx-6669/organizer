@@ -2134,3 +2134,6 @@ a.fun-card:hover{ border-color: var(--gold-soft); transform: translateY(-2px); b
 .copy-day:hover{ color: var(--gold); border-color: var(--gold-soft); }
 .today-lessons-head{ align-items:center; }
 .day-panel-title{ display:flex; align-items:center; gap:12px; }
+
+.snooze-menu em.busy{ color: var(--tab1); }
+.snooze-menu button{ align-items:flex-start; }
