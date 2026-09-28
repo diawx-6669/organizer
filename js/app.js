@@ -1319,13 +1319,25 @@ function renderLessons(){
 }
 
 /* ---- фильтр по статусу и сортировка ---- */
+/* Сделанное старше месяца уходит в «Архив»: за учебный год список
+   иначе разрастётся так, что в «Сделанных» ничего не найти. */
+const ARCHIVE_AFTER_DAYS = 30;
+
+function isArchived(item){
+  if(!item.done) return false;
+  const when = item.due || (item.createdAt ? schedDateKey(new Date(item.createdAt)) : null);
+  if(!when) return false;
+  return daysUntil(when) < -ARCHIVE_AFTER_DAYS;
+}
+
 const HW_STATUSES = [
   {key:'active',  label:'Активные',    test: h => !h.done},
   {key:'overdue', label:'Просроченные',test: h => !h.done && h.due && daysUntil(h.due) < 0},
   {key:'today',   label:'На сегодня',  test: h => !h.done && h.due && daysUntil(h.due) === 0},
   {key:'week',    label:'На неделю',   test: h => !h.done && h.due && daysUntil(h.due) >= 0 && daysUntil(h.due) <= 7},
-  {key:'done',    label:'Сделанные',   test: h => h.done},
-  {key:'all',     label:'Все',         test: () => true}
+  {key:'done',    label:'Сделанные',   test: h => h.done && !isArchived(h)},
+  {key:'archive', label:'Архив',       test: h => isArchived(h)},
+  {key:'all',     label:'Все',         test: h => !isArchived(h)}
 ];
 
 let hwStatus = 'active';
