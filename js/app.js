@@ -1115,6 +1115,70 @@ function renderMobileTitle(){
   }
 }
 
+/* ============ СКОПИРОВАТЬ ДЕНЬ ТЕКСТОМ ============ */
+/* Чтобы скинуть однокласснику в мессенджер. */
+
+function dayAsText(date){
+  const lessons = schedLessonsOn(date).filter(l => !l.isHomeroom);
+  const key = schedDateKey(date);
+  const hw  = DATA.homework.filter(h => h.due === key);
+  const sor = DATA.summatives.filter(x => x.due === key);
+
+  const lines = [date.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'})];
+
+  if(lessons.length){
+    lines.push('');
+    lessons.forEach(l=>{
+      const room = l.room ? ' (' + l.room + ')' : '';
+      lines.push(l.time + '  ' + l.subject + room);
+    });
+  } else {
+    lines.push('', 'Уроков нет');
+  }
+
+  if(sor.length){
+    lines.push('', 'СОР:');
+    sor.forEach(x => lines.push('- ' + (x.subject ? x.subject + ': ' : '') + x.title));
+  }
+
+  if(hw.length){
+    lines.push('', 'Домашка:');
+    hw.forEach(h => lines.push((h.done ? '+ ' : '- ') + (h.subject ? h.subject + ': ' : '') + h.title));
+  }
+
+  return lines.join('\n');
+}
+
+/* navigator.clipboard работает только на https, поэтому держим запасной путь */
+async function copyText(text){
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  }catch(e){ /* не вышло — пробуем старым способом ниже */ }
+
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  }catch(e){ return false; }
+}
+
+async function copyDay(dateStr){
+  const date = dateStr ? new Date(dateStr) : new Date();
+  const ok = await copyText(dayAsText(date));
+  lastDeleted = null;          // плашка снизу тут просто уведомление, возвращать нечего
+  showUndo(ok ? 'День скопирован — можно вставлять' : 'Не получилось скопировать');
+}
+
 /* ---- блок "уроки на сегодня" ---- */
 function renderTodayLessons(){
   const wrap = document.getElementById('today-lessons');
@@ -1150,7 +1214,8 @@ function renderTodayLessons(){
       '<span class="today-marks">' + marks.join('') + '</span></div>';
   }).join('');
 
-  wrap.innerHTML = '<div class="today-lessons-head"><span>сегодня</span><strong>' + escapeHtml(status) + '</strong></div>' + rows;
+  wrap.innerHTML = '<div class="today-lessons-head"><span>сегодня</span><strong>' + escapeHtml(status) + '</strong>' +
+    '<button class="copy-day" onclick="copyDay()">скопировать день</button></div>' + rows;
 }
 
 function renderOrbit(){
@@ -2990,6 +3055,9 @@ function showUndo(text){
     document.body.appendChild(bar);
   }
   document.getElementById('undo-text').textContent = text;
+  // «Вернуть» показываем, только когда есть что возвращать
+  const undoBtn = bar.querySelector('button');
+  if(undoBtn) undoBtn.style.display = lastDeleted ? '' : 'none';
   bar.classList.add('open');
 
   clearTimeout(undoTimer);
@@ -3238,7 +3306,9 @@ function renderCalendar(){
 function showDayPanel(dateObj){
   const panel = document.getElementById('day-panel');
   panel.style.display = 'block';
-  document.getElementById('day-panel-title').textContent = dateObj.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
+  document.getElementById('day-panel-title').innerHTML =
+    escapeHtml(dateObj.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'})) +
+    `<button class="copy-day" onclick="copyDay('${schedDateKey(dateObj)}')">скопировать</button>`;
   const {hw, summ, ev} = dayItemsFor(dateObj);
   const listEl = document.getElementById('day-panel-list');
   listEl.innerHTML = '';
