@@ -3703,7 +3703,9 @@ function pomodoroRender(){
   const modes = document.querySelectorAll('.pomodoro-modes button[data-mode]');
   modes.forEach(btn=>{
     btn.textContent = pomodoroMinutes(btn.dataset.mode) + ' мин';
-    btn.classList.toggle('active', btn.dataset.mode === pomodoroMode);
+    const isActive = btn.dataset.mode === pomodoroMode;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
   });
 }
 function pomodoroTogglePanel(){
