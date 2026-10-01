@@ -827,7 +827,9 @@ function syncBottomNav(){
   const active = document.querySelector('.view.active');
   const current = active ? active.id.replace('view-','') : '';
   document.querySelectorAll('.bottom-nav button[data-view]').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.view === current);
+    const isActive = btn.dataset.view === current;
+    btn.classList.toggle('active', isActive);
+    if(isActive){ btn.setAttribute('aria-current', 'page'); } else { btn.removeAttribute('aria-current'); }
   });
   const hw = DATA.homework.filter(h=>!h.done).length;
   const sm = DATA.summatives.filter(x=>!x.done).length;
