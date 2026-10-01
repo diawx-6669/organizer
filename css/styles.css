@@ -793,7 +793,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     height:56px;
     padding: env(safe-area-inset-top,0) 14px 0;
-    padding-top: calc(env(safe-area-inset-top,0px) + 0px);
     box-sizing:content-box;
     background: var(--surface);
     border-bottom:1px solid var(--line);
