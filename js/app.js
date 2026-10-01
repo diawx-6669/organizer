@@ -3076,6 +3076,8 @@ function showUndo(text){
     bar = document.createElement('div');
     bar.id = 'undo-bar';
     bar.className = 'undo-bar';
+    bar.setAttribute('role', 'status');
+    bar.setAttribute('aria-live', 'polite');
     bar.innerHTML = '<span id="undo-text"></span><button onclick="undoDelete()">Вернуть</button>';
     document.body.appendChild(bar);
   }
