@@ -63,6 +63,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 
 ::selection{ background: var(--gold-soft); color: var(--text); }
+::-moz-selection{ background: var(--gold-soft); color: var(--text); }
 
 /* ============ LAYOUT ============ */
 .app{
