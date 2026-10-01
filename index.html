@@ -165,12 +165,12 @@
         <div><h2>Расписание</h2><p class="section-hint">Недели А и Б чередуются сами. Нажми на урок — добавится домашка на этот день.</p></div>
       </div>
       <div class="sched-nav">
-        <button class="sched-arrow" onclick="schedShift(-1)">‹</button>
+        <button class="sched-arrow" onclick="schedShift(-1)" aria-label="Предыдущая неделя">‹</button>
         <div class="sched-range" id="sched-range"></div>
         <button class="sched-today" onclick="schedToday()">сегодня</button>
         <button class="sched-today" onclick="openTimesEditor()">время</button>
         <button class="sched-today" onclick="window.print()">распечатать</button>
-        <button class="sched-arrow" onclick="schedShift(1)">›</button>
+        <button class="sched-arrow" onclick="schedShift(1)" aria-label="Следующая неделя">›</button>
       </div>
       <div class="sched-grid-wrap">
         <div class="sched-grid" id="sched-grid"></div>
