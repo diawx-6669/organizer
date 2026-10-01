@@ -819,6 +819,8 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.dataset.view === 'schedule') renderSchedule();
     closeMobileNav();
     syncBottomNav();
+    const label = btn.querySelector('.label');
+    document.title = (label ? label.textContent + ' — ' : '') + 'Мой органайзер';
   });
 });
 
