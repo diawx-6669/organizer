@@ -3,6 +3,7 @@
   "short_name": "Органайзер",
   "description": "Уроки, домашка, суммативки, цели и календарь в одном месте",
   "lang": "ru",
+  "id": "./index.html",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
