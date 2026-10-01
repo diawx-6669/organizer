@@ -3261,7 +3261,7 @@ document.getElementById('overlay').addEventListener('click', (e)=>{
   if(e.target.id === 'overlay') closeModal();
 });
 document.addEventListener('keydown', (e)=>{
-  if(e.key === 'Escape') closeModal();
+  if(e.key === 'Escape'){ closeModal(); closeMobileNav(); }
 });
 
 /* ============ CALENDAR ============ */
