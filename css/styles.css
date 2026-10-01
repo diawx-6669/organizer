@@ -199,6 +199,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   overflow-x:hidden;
   position:relative;
   padding: 34px 44px 60px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 .main::-webkit-scrollbar{width:9px}
 .main::-webkit-scrollbar-thumb{background:var(--line-strong); border-radius:5px}
