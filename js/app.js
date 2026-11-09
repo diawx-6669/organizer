@@ -4831,3 +4831,185 @@ document.addEventListener('keydown', (e)=>{
       break;
   }
 });
+
+/* ============ ЖИВЫЕ ЭФФЕКТЫ ============ */
+/* Всё здесь — только украшение: если эффекты выключить, сайт работает так же.
+   При «уменьшить движение» в системе почти всё отключается. */
+(function(){
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const main = document.querySelector('.main');
+
+  /* буквы заголовков влетают по одной при каждом открытии раздела */
+  function splitHeading(h){
+    if(h.dataset.split) return;
+    h.dataset.split = '1';
+    const text = h.textContent;
+    h.setAttribute('aria-label', text);
+    h.innerHTML = [...text].map((ch, i) => ch === ' '
+      ? '<span class="split-space" aria-hidden="true"> </span>'
+      : `<span class="split-char" aria-hidden="true" style="--i:${i}">${escapeHtml(ch)}</span>`).join('');
+  }
+  if(!reduce) document.querySelectorAll('.section-head h2').forEach(splitHeading);
+
+  /* числа отсчитываются от нуля */
+  function countUp(el){
+    const m = /^(\d+)(.*)$/.exec(el.textContent.trim());
+    if(!m) return;
+    const target = Number(m[1]), tail = m[2];
+    if(target === 0) return;
+    const start = performance.now(), dur = 900;
+    const tick = now => {
+      const t = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - t, 4);
+      el.textContent = Math.round(target * e) + tail;
+      if(t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+  const COUNT_SEL = '.stat-row .value, .plan-hero-stats b, .plan-ring-num b, .plan-next-count b';
+
+  /* появление при прокрутке: только то, что ниже экрана, чтобы
+     перерисовка после галочки не заставляла всё моргать */
+  const REVEAL_SEL = '.plan-item, .plan-group-title, .plan-section h3, .plan-idea, .item-row, .goal-card, ' +
+    '.note-card, .subject-card, .stat-row, .activity-heatmap, .workload, .today-lessons, .orbit-wrap, .quick-action';
+  const io = (!reduce && 'IntersectionObserver' in window) ? new IntersectionObserver(entries=>{
+    let n = 0;
+    entries.forEach(en=>{
+      if(!en.isIntersecting) return;
+      const el = en.target;
+      io.unobserve(el);
+      el.style.setProperty('--rd', (n++ * 45) + 'ms');
+      el.classList.remove('reveal-pending');
+      el.classList.add('revealed');
+      el.addEventListener('animationend', ()=> el.classList.remove('revealed'), {once:true});
+    });
+  }, {threshold: 0.08}) : null;
+
+  function tagBelowFold(root){
+    if(!io || !root) return;
+    const limit = window.innerHeight;
+    root.querySelectorAll(REVEAL_SEL).forEach(el=>{
+      if(el.classList.contains('reveal-pending')) return;
+      const r = el.getBoundingClientRect();
+      if(r.height === 0 || r.top < limit - 20) return;
+      el.classList.add('reveal-pending');
+      io.observe(el);
+    });
+  }
+
+  function onViewShown(){
+    const view = document.querySelector('.view.active');
+    if(!view) return;
+    requestAnimationFrame(()=>{
+      if(!reduce) view.querySelectorAll(COUNT_SEL).forEach(countUp);
+      tagBelowFold(view);
+    });
+  }
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', onViewShown));
+
+  if(main && io && 'MutationObserver' in window){
+    let pending = false;
+    new MutationObserver(()=>{
+      if(pending) return;
+      pending = true;
+      requestAnimationFrame(()=>{ pending = false; tagBelowFold(document.querySelector('.view.active')); });
+    }).observe(main, {childList:true, subtree:true});
+  }
+
+  /* волна от нажатия */
+  const RIPPLE_SEL = '.add-btn, .btn-primary, .urgent-go, .plan-link, .plan-done-btn, .quick-action, .plan-next, .tab-btn, .bottom-nav button, .plan-hot-row';
+  document.addEventListener('pointerdown', e=>{
+    if(reduce) return;
+    const btn = e.target.closest && e.target.closest(RIPPLE_SEL);
+    if(!btn) return;
+    const r = btn.getBoundingClientRect();
+    const dot = document.createElement('span');
+    dot.className = 'ripple';
+    dot.style.left = (e.clientX - r.left) + 'px';
+    dot.style.top = (e.clientY - r.top) + 'px';
+    btn.appendChild(dot);
+    dot.addEventListener('animationend', ()=> dot.remove(), {once:true});
+  }, {passive:true});
+
+  if(reduce || !fine) return;   // дальше — эффекты только для мыши
+
+  /* мягкий свет тянется за курсором */
+  const glow = document.createElement('div');
+  glow.className = 'cursor-glow';
+  glow.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(glow);
+  let gx = innerWidth / 2, gy = innerHeight / 2, tx = gx, ty = gy, gRun = false;
+  const glowLoop = ()=>{
+    gx += (tx - gx) * 0.12; gy += (ty - gy) * 0.12;
+    glow.style.transform = `translate3d(${gx}px, ${gy}px, 0)`;
+    if(Math.abs(tx - gx) + Math.abs(ty - gy) > 0.5) requestAnimationFrame(glowLoop); else gRun = false;
+  };
+
+  const SPOT_SEL = '.ledger, .plan-list, .goal-card, .quick-action, .stat-list';
+  const TILT_SEL = '.plan-hero, .plan-idea, .goal-card, .quick-action';
+  const MAG_SEL = '.add-btn, .plan-next, .urgent-go, .btn-primary';
+  let tiltEl = null, magEl = null, frame = 0, last = null;
+
+  function resetTilt(){
+    if(!tiltEl) return;
+    tiltEl.classList.remove('tilting');
+    tiltEl.style.setProperty('--rx', '0deg');
+    tiltEl.style.setProperty('--ry', '0deg');
+    tiltEl = null;
+  }
+  function resetMag(){
+    if(!magEl) return;
+    magEl.style.setProperty('--tx', '0px');
+    magEl.style.setProperty('--ty', '0px');
+    magEl = null;
+  }
+
+  function onMove(){
+    frame = 0;
+    const e = last;
+    tx = e.clientX; ty = e.clientY;
+    glow.classList.add('on');
+    if(!gRun){ gRun = true; requestAnimationFrame(glowLoop); }
+
+    const t = e.target.closest ? e.target : null;
+    if(!t) return;
+
+    const spot = t.closest(SPOT_SEL);
+    if(spot){
+      const r = spot.getBoundingClientRect();
+      spot.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      spot.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    }
+
+    const tilt = t.closest(TILT_SEL);
+    if(tilt !== tiltEl) resetTilt();
+    if(tilt){
+      tiltEl = tilt;
+      const r = tilt.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5, py = (e.clientY - r.top) / r.height - 0.5;
+      const k = r.width > 500 ? 2.5 : 7;        // большие карточки качаются меньше
+      tilt.classList.add('tilt', 'tilting');
+      tilt.style.setProperty('--rx', (-py * k).toFixed(2) + 'deg');
+      tilt.style.setProperty('--ry', (px * k).toFixed(2) + 'deg');
+    }
+
+    const mag = t.closest(MAG_SEL);
+    if(mag !== magEl) resetMag();
+    if(mag){
+      magEl = mag;
+      const r = mag.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+      mag.classList.add('magnetic');
+      mag.style.setProperty('--tx', Math.max(-8, Math.min(8, dx * 0.25)).toFixed(1) + 'px');
+      mag.style.setProperty('--ty', Math.max(-6, Math.min(6, dy * 0.3)).toFixed(1) + 'px');
+    }
+  }
+
+  document.addEventListener('pointermove', e=>{
+    last = e;
+    if(!frame) frame = requestAnimationFrame(onMove);
+  }, {passive:true});
+  document.addEventListener('pointerleave', ()=>{ glow.classList.remove('on'); resetTilt(); resetMag(); });
+  window.addEventListener('blur', ()=>{ glow.classList.remove('on'); resetTilt(); resetMag(); });
+})();
