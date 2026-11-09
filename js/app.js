@@ -76,34 +76,35 @@ const SCHED_COLORS = {
   "Geography":"#d97a72"
 };
 
-// кабинеты — как в школьном расписании; у остальных предметов кабинет не указан
-const SCHED_ROOMS = {
-  "Chemistry":"233",
-  "Physics":"133",
-  "Information and communication technology":"143",
-  "Physical and Health Education":"Gym"
-};
+/* Личное расписание (какие уроки, кабинеты, от какой недели считать А/Б)
+   в коде больше не лежит — сайт публичный, и кто угодно мог его прочитать.
+   Теперь оно хранится в DATA.schedule, то есть только в этом браузере:
+   { anchor: 'ГГГГ-ММ-ДД' (понедельник недели А),
+     weeks: { A: {Пн:[...], ...}, B: {...} },
+     rooms: { 'Chemistry': '233', ... } }
+   Попадает оно туда по ключу (см. «ПРИВАТНОСТЬ» ниже) или из файла копии. */
 
-// SCHED_DATA[pattern][dayKey] = subject per time slot, in order
-const SCHED_DATA = {
-  A: {
-    "Пн": ["Mathematics","Physical and Health Education","Arts","Homeroom","English Language Acquisition","Kazakh Language and Literature","Information and communication technology","Homeroom"],
-    "Вт": ["Chemistry","Physics","Mathematics","Homeroom","Kazakh Language and Literature","English Language Acquisition","World History","Homeroom"],
-    "Ср": ["Arts","Mathematics","Economics","Homeroom","Kazakh History","Russian Language Acquisition","Biology","Homeroom"],
-    "Чт": ["Geography","Information and communication technology","Chemistry","Homeroom","Physical and Health Education","Mathematics","Physics","Homeroom"],
-    "Пт": ["Russian Language Acquisition","Kazakh Language and Literature","English Language Acquisition","Homeroom","Kazakh History","Biology","Economics","Homeroom"]
-  },
-  B: {
-    "Пн": ["Mathematics","Physical and Health Education","Arts","Homeroom","English Language Acquisition","Kazakh Language and Literature","Information and communication technology","Homeroom"],
-    "Вт": ["Chemistry","Physics","Mathematics","Homeroom","Kazakh Language and Literature","English Language Acquisition","World History","Homeroom"],
-    "Ср": ["Arts","Mathematics","Geography","Homeroom","Kazakh History","Russian Language Acquisition","Biology","Homeroom"],
-    "Чт": ["Geography","Information and communication technology","Chemistry","Homeroom","Physical and Health Education","Mathematics","Physics","Homeroom"],
-    "Пт": ["Russian Language Acquisition","Kazakh Language and Literature","English Language Acquisition","Homeroom","Kazakh History","Biology","Economics","Homeroom"]
-  }
-};
+function hasSchedule(){
+  const s = DATA.schedule;
+  return !!(s && s.weeks && s.weeks.A && s.weeks.B);
+}
 
-// a Monday known to be a pattern-"A" week — everything alternates from here automatically
-const SCHED_ANCHOR_MONDAY = new Date(2026,8,14);
+function schedDay(pattern, dayKey){
+  if(!hasSchedule()) return [];
+  const list = DATA.schedule.weeks[pattern] && DATA.schedule.weeks[pattern][dayKey];
+  return Array.isArray(list) ? list : [];
+}
+
+function schedRoomFor(subj){
+  const rooms = (DATA.schedule && DATA.schedule.rooms) || {};
+  return rooms[subj] || '';
+}
+
+// понедельник недели «А» — от него чередование считается само
+function schedAnchorMonday(){
+  const m = DATA.schedule && /^(\d{4})-(\d{2})-(\d{2})$/.exec(DATA.schedule.anchor || '');
+  return m ? new Date(Number(m[1]), Number(m[2])-1, Number(m[3])) : new Date(2024,0,1);
+}
 
 function schedGetMonday(d){
   const day = (d.getDay()+6)%7; // Monday=0
@@ -122,7 +123,7 @@ function schedFlipped(){
 }
 
 function schedPatternFor(monday){
-  const diffDays = Math.round((monday - SCHED_ANCHOR_MONDAY)/(1000*60*60*24));
+  const diffDays = Math.round((monday - schedAnchorMonday())/(1000*60*60*24));
   const diffWeeks = Math.round(diffDays/7);
   const even = ((diffWeeks % 2) + 2) % 2 === 0;
   return (even !== schedFlipped()) ? 'A' : 'B';
@@ -168,6 +169,15 @@ function renderSchedule(){
   const today = schedDateKey(new Date());
 
   grid.innerHTML = '';
+  grid.classList.toggle('is-empty', !hasSchedule());
+  if(!hasSchedule()){
+    const note = document.createElement('div');
+    note.className = 'sched-missing';
+    note.innerHTML = `Расписания на этом устройстве нет. Если органайзер твой —
+      <button class="link-btn" onclick="openPrivacy()">введи ключ</button> или загрузи свою копию.`;
+    grid.appendChild(note);
+    return;
+  }
   grid.appendChild(document.createElement('div')).className='sched-corner';
   days.forEach(({key,date})=>{
     const h = document.createElement('div');
@@ -183,7 +193,8 @@ function renderSchedule(){
     grid.appendChild(tcell);
 
     days.forEach(({key,date})=>{
-      const subj = SCHED_DATA[pattern][key][slotIdx];
+      const subj = schedDay(pattern, key)[slotIdx];
+      if(!subj){ grid.appendChild(document.createElement('div')).className = 'sched-cell sched-empty'; return; }
       const rus = SCHED_RUS[subj] || subj;
       const isHomeroom = subj === 'Homeroom';
       const dateStr = schedDateKey(date);
@@ -200,7 +211,7 @@ function renderSchedule(){
       subjEl.textContent = rus;
       cell.appendChild(subjEl);
 
-      const room = subjectRoom(rus, SCHED_ROOMS[subj]);
+      const room = subjectRoom(rus, schedRoomFor(subj));
       const teacher = subjectTeacher(rus);
       if(teacher) cell.title = rus + ' · ' + teacher;
       if(room){
@@ -242,11 +253,11 @@ function schedLessonsOn(date){
   const key = SCHED_DAY_KEYS[(date.getDay()+6)%7];
   if(!key) return [];                       // суббота и воскресенье
   const pattern = schedPatternFor(schedGetMonday(date));
-  return SCHED_DATA[pattern][key].map((subj, idx)=>({
+  return schedDay(pattern, key).map((subj, idx)=>({
     slot: idx,
     time: schedTimes()[idx],
     subject: SCHED_RUS[subj] || subj,
-    room: subjectRoom(SCHED_RUS[subj] || subj, SCHED_ROOMS[subj]),
+    room: subjectRoom(SCHED_RUS[subj] || subj, schedRoomFor(subj)),
     teacher: subjectTeacher(SCHED_RUS[subj] || subj),
     isHomeroom: subj === 'Homeroom'
   }));
@@ -277,88 +288,22 @@ function hexToRgba(hex, alpha){
 
 const DOWS_FULL = {"Пн":"Понедельник","Вт":"Вторник","Ср":"Среда","Чт":"Четверг","Пт":"Пятница"};
 
-/* Суммативки, которые уже стоят в школьном расписании.
-   Список сверяется со школьным приложением: при новой версии записи,
-   которых там больше нет, убираются, а недостающие добавляются.
-   Всё, что ты уже отметил, оценил или подписал, остаётся нетронутым. */
-const OFFICIAL_SUMMATIVES = [
-  ['Математика',                  '2026-09-15'],
-  ['ИЗО',                         '2026-09-16'],
-  ['ИКТ',                         '2026-09-17'],
-
-  ['Физкультура',                 '2026-09-24'],
-  ['География',                   '2026-09-24'],
-  ['Казахский язык и литература', '2026-09-25'],
-  ['История Казахстана',          '2026-09-25'],
-  ['Английский язык',             '2026-09-25'],
-
-  ['Химия',                       '2026-09-29'],
-  ['Физкультура',                 '2026-10-01'],
-
-  ['Математика',                  '2026-10-07'],
-  ['ИЗО',                         '2026-10-07'],
-  ['Русский язык',                '2026-10-07'],
-  ['Физкультура',                 '2026-10-08'],
-  ['Физика',                      '2026-10-08'],
-  ['Экономика',                   '2026-10-09'],
-  ['Биология',                    '2026-10-09'],
-
-  ['Казахский язык и литература', '2026-10-12'],
-  ['Математика',                  '2026-10-13'],
-  ['Химия',                       '2026-10-13'],
-  ['Всемирная история',           '2026-10-13'],
-  ['Физика',                      '2026-10-15'],
-  ['ИКТ',                         '2026-10-15'],
-
-  ['ИЗО',                         '2026-10-19'],
-  ['Английский язык',             '2026-10-20'],
-  ['ИЗО',                         '2026-10-21'],
-  ['ИКТ',                         '2026-10-22'],
-  ['География',                   '2026-10-22'],
-  ['Биология',                    '2026-10-23']
-];
-
-/* то, что добавляли прошлые версии списка — только эти записи можно убирать
-   при сверке, чтобы не задеть добавленные вручную */
-const PREVIOUS_AUTO_SUMMATIVES = [
-  ['Математика','2026-09-15'], ['ИЗО','2026-09-16'], ['ИКТ','2026-09-17'],
-  ['Физкультура','2026-09-24'], ['География','2026-09-24'],
-  ['Казахский язык и литература','2026-09-25'], ['История Казахстана','2026-09-25'],
-  ['Химия','2026-09-29'], ['Физкультура','2026-10-01'], ['Экономика','2026-10-02'],
-  ['Математика','2026-10-07'], ['ИЗО','2026-10-07'], ['Русский язык','2026-10-07'],
-  ['Физкультура','2026-10-08'], ['Физика','2026-10-08'],
-  ['Казахский язык и литература','2026-10-12'], ['Математика','2026-10-13'],
-  ['Химия','2026-10-13'], ['Физика','2026-10-15'], ['ИКТ','2026-10-15'],
-  ['ИЗО','2026-10-19'], ['ИЗО','2026-10-21'], ['ИКТ','2026-10-22'], ['География','2026-10-22']
-];
-
+/* Школьные даты СОР раньше были вписаны прямо в код — их видел любой,
+   кто открывал сайт. Теперь они лежат в зашифрованном блоке вместе с
+   расписанием и добавляются в DATA.summatives только после ввода ключа,
+   один раз на устройство. Новые СОР заводятся как обычно: вручную или
+   строкой «физика сор 15 окт». */
 const SUMM_SYNC_KEY = 'summatives-synced-version';
 const SUMM_SYNC_VERSION = 3;
 
 function summKey(subject, due){ return (subject||'') + '|' + (due||''); }
-function summTouched(item){
-  return item.done
-    || (item.score !== null && item.score !== undefined && item.score !== '')
-    || String(item.notes||'').trim() !== ''
-    || item.title !== 'Суммативная работа';
-}
 
-function syncOfficialSummatives(){
-  if(Number(localStorage.getItem(SUMM_SYNC_KEY)||0) >= SUMM_SYNC_VERSION) return;
-
-  const official = new Set(OFFICIAL_SUMMATIVES.map(([subj,due]) => summKey(subj,due)));
-  const wasAuto  = new Set(PREVIOUS_AUTO_SUMMATIVES.map(([subj,due]) => summKey(subj,due)));
-
-  // убираем то, что раньше добавилось автоматически, а в расписании больше не стоит
-  DATA.summatives = DATA.summatives.filter(item=>{
-    const key = summKey(item.subject, item.due);
-    if(official.has(key)) return true;
-    const auto = item.source === 'schedule' || wasAuto.has(key);
-    return !auto || summTouched(item);
-  });
-
+function addOfficialSummatives(list){
+  if(!Array.isArray(list)) return 0;
+  if(Number(localStorage.getItem(SUMM_SYNC_KEY)||0) >= SUMM_SYNC_VERSION) return 0;
   const present = new Set(DATA.summatives.map(item => summKey(item.subject, item.due)));
-  OFFICIAL_SUMMATIVES.forEach(([subject, due])=>{
+  let added = 0;
+  list.forEach(([subject, due])=>{
     if(present.has(summKey(subject, due))) return;
     present.add(summKey(subject, due));
     DATA.summatives.push({
@@ -366,12 +311,10 @@ function syncOfficialSummatives(){
       score: null, maxScore: 100, notes: '', done: false,
       source: 'schedule', createdAt: Date.now()
     });
+    added++;
   });
-
   localStorage.setItem(SUMM_SYNC_KEY, String(SUMM_SYNC_VERSION));
-  localStorage.removeItem('seeded-sor-v1');
-  localStorage.removeItem('seeded-sor-v2');
-  saveData();
+  return added;
 }
 
 /* move any legacy homework items (old 'kind: sor' scheme) into the dedicated summatives list, once */
@@ -391,29 +334,47 @@ function migrateLegacySummatives(){
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
+/* DATA_READY — пока данные не прочитаны (например, ждём пароль),
+   ничего не сохраняем: иначе пустой DATA затёр бы зашифрованную копию. */
+let DATA_READY = false;
+
 async function loadData(){
+  let parsed = null;
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      DATA = normalizeData(JSON.parse(raw));
-    }
+    if(raw) parsed = JSON.parse(raw);
   }catch(e){
     console.log('Сохранённых данных нет, начинаем с пустого', e);
   }
+  if(isLockedEnvelope(parsed)){
+    parsed = await askPassword(parsed);       // ждём, пока введут пароль
+  }
+  if(parsed) DATA = normalizeData(parsed);
+  DATA_READY = true;
   migrateActivityLog();
   migrateLegacySummatives();
-  syncOfficialSummatives();
   renderAll();
   updateSubjectsDatalist();
+  await unlockFromLink();
 }
 
-async function saveData(){
-  try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
-    flashSaved();
-  }catch(e){
-    console.error('Ошибка сохранения', e);
-  }
+/* сохранения идут строго по очереди: шифрование асинхронное, и без
+   очереди более старая версия могла бы записаться поверх новой */
+let saveQueue = Promise.resolve();
+
+function saveData(){
+  if(!DATA_READY) return saveQueue;
+  const json = JSON.stringify(DATA);
+  saveQueue = saveQueue.then(async ()=>{
+    try{
+      const value = LOCK_KEY ? JSON.stringify(await sealData(json)) : json;
+      localStorage.setItem(STORAGE_KEY, value);
+      flashSaved();
+    }catch(e){
+      console.error('Ошибка сохранения', e);
+    }
+  });
+  return saveQueue;
 }
 
 function flashSaved(){
@@ -553,12 +514,12 @@ function collectLessonEvents(){
     if(schedPatternFor(monday) !== pattern) monday.setDate(monday.getDate() + 7);
 
     SCHED_DAY_KEYS.forEach((dayKey, dayIdx)=>{
-      SCHED_DATA[pattern][dayKey].forEach((subj, slot)=>{
+      schedDay(pattern, dayKey).forEach((subj, slot)=>{
         const date = new Date(monday);
         date.setDate(monday.getDate() + dayIdx);
         const dateStr = schedDateKey(date);
         const time = schedTimes()[slot];
-        const room = SCHED_ROOMS[subj];
+        const room = schedRoomFor(subj);
         events.push({
           uid: `lesson-${pattern}-${dayIdx}-${slot}`,
           start: icsLocalStamp(dateStr, time),
@@ -791,6 +752,7 @@ function applyImport(mode){
       });
     });
     DATA.subjectInfo = Object.assign({}, incoming.subjectInfo || {}, DATA.subjectInfo || {});
+    if(!hasSchedule() && incoming.schedule) DATA.schedule = incoming.schedule;
     DATA_SETS.forEach(key=>{
       incoming[key].forEach(v => { if(!DATA[key].includes(v)) DATA[key].push(v); });
     });
@@ -1657,7 +1619,7 @@ function resetTimes(){
 }
 
 /* ============ УЧИТЕЛЯ И КАБИНЕТЫ ============ */
-/* Кабинеты из расписания лежат в SCHED_ROOMS и меняться не могут.
+/* Кабинеты из расписания лежат в DATA.schedule.rooms и здесь не меняются.
    Здесь — то, что вписал сам: учитель и кабинет-уточнение по предмету. */
 
 function subjectInfo(subject){
@@ -3396,6 +3358,340 @@ function calGoToday(){
 /* ============ UTIL ============ */
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ============ ПРИВАТНОСТЬ ============ */
+/* Две защиты.
+   1. Личное расписание и школьные даты СОР лежат в коде только в
+      зашифрованном виде (AES-GCM). Ключа в репозитории нет — без него
+      это набор случайных символов. Ключ вводится один раз на устройство
+      (или открывается ссылка вида …/#key=КЛЮЧ), после чего расписание
+      хранится в DATA этого браузера, как и всё остальное.
+   2. Пароль на вход (по желанию). Тогда DATA в localStorage тоже лежит
+      зашифрованным: ключ выводится из пароля (PBKDF2, 310 000 итераций),
+      живёт только в памяти вкладки и пропадает при закрытии. */
+
+const PERSONAL_BLOB = {
+  iv: 'jdF-V4IkZneE5Gnw',
+  ct: 'VLksTvS2DZ2IiDbPGbQeZt_idHPxVDHrLUUcOB4V2NAwHU6zmXZ3-pGXG5ZJaPkA8WoFu_uJeqXRk-wthxUqQ_VMvMV6QYSu' +
+      'wczOid-sbr1owgW-2ADKbe8c4x6IvgYE0-h3VsGgnSQ9RVHK0_b5gfat3yLZfNK-80frCfxbqNcMR9iMJJWAwnj1R2qpYXGO' +
+      'gezOZ3-brqOFymG9wR0eISPEHDPcMU3Zoz44mJUox-97KdHrABUIitykefiDUAniiN1nQ5seTflLlmZck46-sFcjjJfFYj75' +
+      'gMg1STccB9KfmKwyCcbj72FBjWkLrTc60AxvYUIoUusx8iL4lVtAPqsEkzm3MZEq-uOK3GrCJ1mPy5d6Lal4Ig1CJZknnlyy' +
+      'AOm4ZnXRQufjgP2HfKpIRVWBJRJMSQCRekR4zUyN5xMf0yge8t8vUUwJ6WZq6hQDhIKXttnU84uNX3Vu3onYHFbkMeUry3m3' +
+      'q_NsV5WWmsHUSHIYWlRGDnYdB0VSxnEJ-Kbed8IZiMkE5dkM7_oBw-RAevUab8Qnv2ZyNYm-se7ICSRowAJbGVIIkBKkqFwc' +
+      '0kXQTyPo7Vw05eH-u7HcdtRkxVpuo-ejnFzpwBA37dkeBuiAjPVjLj1gSNl30MDj6UC0TF5IVUyd7Tg9JbIV5GRHHIKlSIuc' +
+      'x4JreS6pLtBfvsVdPfWN5x7_yomZP3dlKfuNSNVlG4zuhy_FBevf0P5jqe6miupUppY5HmSMWUSyZ4sSYqkwWtlyOXl5RXtA' +
+      'uLrGzEW25EsNbGZF3wGKA8MqHRgHxUBL-3e2A8dsnAKEITKKRSl-xqm-_-Atf3vLX2hq_ER8C3i0c8bYpWE4CDA5-8auRFYT' +
+      'PEyEBYLKDFW8wNk0yqDo4Ug_cyVdUA2V_PH6yf7XbWZt3NHIp26_ENe9rseDco8hEoEtUEM42y8UBdJHHoRRTxBPwMUs5Z7m' +
+      'lPAuWsTe5gI_ffT4mnBX1wr-q0RHNZXjAvPoDn-i85XKsHP-z7ItDu5oSzPYfQPrF3FMA6jB1X70REy1Fn3_RAdSP03vDz5g' +
+      '-H3DNr4y_iOk-s-TC8YF0Hhq3p4lM7wsWPmqe-2HOMvxt2RnKdteGWhSn_bixeZrDAhWWXXz9CEE1VQlg8s3QXpLKkNKEmY0' +
+      'ZtMbiRDkrJtnPaJ1cbr17hz14uTQX6uiBEIuVUHTOuh8ZqA-B4JcY0q6cXFKrLz_2u0YrkXWu-Uyz3Cs_e23lBjQS-euQlFH' +
+      'M_pAqdcba5x0cDErsvRV7gA5Xr8_IuSMJl3mzaP6usUCtWCj168r1DrDqpS8-aOEPOR8Oo5oFWuYyjCrCfvfJDllvOEIZ44s' +
+      'V4ZwyEPbr8jR2wDb5S4VJ2Z8VoA2G0fEcpVVR2WTwSfWgYJZW0zjnLkhSBpCnAEiAzfBh2OcqQkGcBO-qPxNIv47obGG92fC' +
+      'rIIuDtW4UlBKcuf1SoFeEANHyzqI3CSYpvyJ85r3XMFJ3f6jdVTuXsF40Ys81Grz2qUe-C-tvEuX7-1JbKh-bTRlB5kJ9urb' +
+      'Hs5hnWsu-Prcmr15sB1jyilrcMk9kgsETLMFMB9ZqqoaSAglcTsvJhUiA-G4PzV6YR_XTpeTOdbku4oZ75eGRm4lRq_M2ytN' +
+      'hcxnFmugkP7PnsEhjrd8ryiW-TOvwUN5WNrXRPMqhrpTh_M7252iiekqY11cOSYnI25Wk2enSsuXOssTZs5aitlEU_w-XC5M' +
+      '9mE0WlNsEFhE6NqfWFybyH85ZhCIlOaJ-PxLR-tFXblk6JwnaXrRfIj4reh7Z3Gn6T-8UX9DHpp5OFTfrOmI1_GC9Vppheow' +
+      'ggRb5QvRVsFHgxpjJXzT_HkEdDUO68QRyeWp1GbczCceFZdWj85QKzdYhx8Xyu1-O3kMwOFz3wOMuLHB89QXPnoARvItDp8G' +
+      'JTVZJYO7HTpyvfaISIH0SeCmXaOz0N-CwRHtvtP_bvByK6yii3wMb4-yDvIAAQGkMMYO7c_WYWGTGoikNJ67n0DbvET2B3Hr' +
+      'NEyZs7uIlIZcjafWxTlqDrnBQvIReWOpaz0M8KQfAMKCSiocyVJPDXpxGRgCuUHVC3TB_4XH-1UIerpOLh4c7yIayoGcx9XF' +
+      '7lr--au4pTFgPGyfHR4c7WvurctBy8HRuJvggIlO3W259uF-RTtj8B_fwff-gsSIaxVD4aaNdpdOiJJjBP79cZcrvkSnEqnX' +
+      'dUSlMDFAb-e8Y_9N2gi_pQlErkTMkhwGydjoxnuvTSA1NM-AsnSL53N2C6Dt4iLfjXesi3GCadNnX8T1a2CfkCX8wtkQ6Lab' +
+      'Dq4KPuTZY3M3a6KptdeD0gnCvJJMAq-0Emgo-h7tihNi3BPWbFoyrindR2yGqgEW3YGpam1iiVRnsq68Xl-RomfgGZtTgR1v' +
+      'g_lQaqJlAGu3uSgYm9zAkC_LlqBgC3qiVSqOoXP-11z8hBdI469q2CcEzDY4PFoXj_7kEt9zU9IzgdhtRa6M7KighnOWOp3B' +
+      '4PEpfqfP17BtFJDY_mZWAp2TTk7LfKUIIBM9Dfy6kUD3OsEmGolwjSA_cBJgGf81Lp7C2gfPraDrHAjA4CuUvMqHkEB2iFRz' +
+      'BC_zKXC4yWub5VY3Lmtwx4zcTZ7i6ptGSBiq-tVQQI2LxGA9azTbyu7h-9eqR6vuTcmbCF0x-cg7DWUeDJnX3p7MBePbjLee' +
+      'HQLPUXluqg4ApUowuxdykkeHNgYOn2sJJTYiGsVH6C9n3acOV_Fana6ooF6LkoN0KzskhcJjCBxjCPQDiR1oz0JhHuYSfZ04' +
+      'BQ9NlLaihYEx7g8USu5wKv1Hsd3DRxB5YBe_qQdUUhTM0hMkzPKzXke28waxwTbEand4PoQQDcaCKq1ZE7pNAZZZ3vtzfrg1' +
+      'LG0mQc5LxClc6rT5NrlLIB_5a2wX9ovUoitTKOUQyxXasufH7ngCMYz8z74N-0ZCWf2EZUs_TYdUER7ep62grn5ra8lq2kqy' +
+      'Y3gjsk6KJqZSeLmwf8YkSxHvVBLJkbn53wKqGi5aeVenRlutBB2choo45huWR-W15MT2gTp6WtTCBAVWSYgBWy0LDL1rbBuv' +
+      'WvStBzOhAfPpufn8E02_aPzqgn-PwyG2hIFwSO2ZT7eWXG5-ewQswuNy5gK6AWXO-lUGF5pgNphkOKsLMbm8e3eLGGeHKYRY' +
+      '8pht-BWbNaMDRsMuqO35bTo4RmtsI0kVotAhyBM56UCQpixvknXC5oWZA4J5YX3NTNf2Y_0r_rSex6ZZa3sCDWjFvTf1Z8CH' +
+      'qzXfx8mEQVc8o9FKLEKpEbCITFKbIKYYwCcES0JezkLr8Wihb2Elj2sFj7x6LvZKIoau7CxmgaTJvujH0UtDpi76AVmCLKir' +
+      'vE0O7cn5Y15_jN6hIHSBttjU2hu3q8m3BowvWWzjdRbLJWrcF9L_B7e00bBUV4TMIuj8e46wzKk-EYQvLC85oJ9SmWZb3-v-' +
+      'jIMT5bGDbhDdbiCfXOZaiMMKk7T_pRyds7zL7nZfClO3NcrxrvoBmBBCEtRxtSBMOVdhOQ3em8NspGU9lkKm-B7P3SLCCIky' +
+      'b5ANXk4ZjKM2zuz21REwXP94VDbkJCMa2xnwMZn82Qo_nzclQK5GVR_mNrCPmuFJSPZWiWODnKYbkjH4dSYoUpRYYxy9EKHo' +
+      '315FXPp1m4WRqizPA8o6ew8alTO_cHO0MLIyH5Ze2RGzbGRXNXfTt0IovmPMObetbA-wtVPuhAthqtZsIm7mZGURRBZOfi-T' +
+      'Jo9M5TWWgckxeTTFyI0_L8IJIjs6R-ZHbM6mQWokNS9A5rRlDQwx3kcMNL926FU'
+};
+
+function b64uToBytes(str){
+  const s = String(str).replace(/-/g,'+').replace(/_/g,'/');
+  const bin = atob(s + '==='.slice((s.length + 3) % 4));
+  return Uint8Array.from(bin, ch => ch.charCodeAt(0));
+}
+
+function bytesToB64u(bytes){
+  let bin = '';
+  for(let i = 0; i < bytes.length; i += 0x8000){
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+function cryptoAvailable(){
+  return !!(window.crypto && crypto.subtle);
+}
+
+/* ---- ключ к личному расписанию ---- */
+
+async function unlockPersonal(input){
+  if(!cryptoAvailable()) return {ok:false, why:'Браузер не даёт шифрование: открой сайт по https, а не файлом с диска.'};
+  const clean = String(input || '').trim().replace(/^.*#key=/, '').replace(/\s+/g, '');
+  let raw;
+  try{ raw = b64uToBytes(clean); }catch(e){ raw = null; }
+  if(!raw || raw.length !== 16) return {ok:false, why:'Ключ не подошёл. Проверь, что скопирован целиком.'};
+  try{
+    const key = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt(
+      {name:'AES-GCM', iv: b64uToBytes(PERSONAL_BLOB.iv)}, key, b64uToBytes(PERSONAL_BLOB.ct));
+    const personal = JSON.parse(new TextDecoder().decode(plain));
+    DATA.schedule = personal.schedule;
+    const added = addOfficialSummatives(personal.summatives);
+    await saveData();
+    renderAll();
+    updateSubjectsDatalist();
+    return {ok:true, added};
+  }catch(e){
+    return {ok:false, why:'Ключ не подошёл. Проверь, что скопирован целиком.'};
+  }
+}
+
+/* ссылка …/#key=КЛЮЧ: подключаем и сразу стираем ключ из адресной строки,
+   чтобы он не остался в истории и не попал на скриншот */
+async function unlockFromLink(){
+  const m = /[#&]key=([A-Za-z0-9_-]+)/.exec(location.hash);
+  if(!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  if(hasSchedule()){ openPrivacy('Расписание уже подключено на этом устройстве.'); return; }
+  const res = await unlockPersonal(m[1]);
+  openPrivacy(res.ok ? personalOkText(res.added) : res.why, !res.ok);
+}
+
+// приложение уже открыто, а в адресе поменялась только часть после #
+window.addEventListener('hashchange', ()=>{ if(DATA_READY) unlockFromLink(); });
+
+function personalOkText(added){
+  return 'Готово: расписание подключено' +
+    (added ? `, добавлено СОР из школьного расписания: ${added}.` : '.');
+}
+
+function forgetSchedule(){
+  if(!confirm('Убрать расписание с этого устройства? Задачи и суммативки останутся. Вернуть можно тем же ключом.')) return;
+  delete DATA.schedule;
+  saveData();
+  renderAll();
+  openPrivacy('Расписание убрано с этого устройства.');
+}
+
+/* ---- пароль на вход ---- */
+
+const LOCK_ITER = 310000;
+const LOCK_MIN_LENGTH = 4;
+const AUTOLOCK_MS = 5 * 60 * 1000;
+let LOCK_KEY = null;
+let LOCK_SALT = null;
+
+function isLockedEnvelope(x){
+  return !!(x && x.locked === 1 && x.salt && x.iv && x.ct);
+}
+
+async function deriveLockKey(password, salt, iterations){
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations, hash:'SHA-256'},
+    base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+
+async function sealData(json){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, LOCK_KEY, new TextEncoder().encode(json));
+  return {locked:1, v:1, iter:LOCK_ITER, salt:bytesToB64u(LOCK_SALT), iv:bytesToB64u(iv), ct:bytesToB64u(new Uint8Array(ct))};
+}
+
+async function openEnvelope(env, password){
+  const salt = b64uToBytes(env.salt);
+  const key = await deriveLockKey(password, salt, Number(env.iter) || LOCK_ITER);
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv: b64uToBytes(env.iv)}, key, b64uToBytes(env.ct));
+  const data = JSON.parse(new TextDecoder().decode(plain));
+  LOCK_KEY = key;
+  LOCK_SALT = salt;
+  return data;
+}
+
+/* экран входа: пока пароль не введён, данные даже не расшифрованы */
+function askPassword(env){
+  return new Promise(resolve=>{
+    const screen = document.createElement('div');
+    screen.className = 'lock-screen';
+    screen.setAttribute('role', 'dialog');
+    screen.setAttribute('aria-modal', 'true');
+    screen.setAttribute('aria-labelledby', 'lock-title');
+    screen.innerHTML = `<form class="lock-card" id="lock-form">
+        <div class="lock-mark" aria-hidden="true">Я</div>
+        <h2 id="lock-title">Органайзер закрыт паролем</h2>
+        <p class="lock-sub">Данные на этом устройстве зашифрованы.</p>
+        <input class="lock-input" id="lock-input" type="password" autocomplete="current-password"
+          placeholder="Пароль" aria-label="Пароль" required>
+        <div class="lock-error" id="lock-error" role="alert"></div>
+        <button class="btn-primary lock-submit" type="submit">Открыть</button>
+        <button class="link-btn lock-forgot" type="button">Забыл пароль</button>
+      </form>`;
+    document.body.appendChild(screen);
+    document.body.classList.add('is-locked');
+    const input = screen.querySelector('#lock-input');
+    const error = screen.querySelector('#lock-error');
+    const submit = screen.querySelector('.lock-submit');
+    setTimeout(()=>input.focus(), 50);
+
+    const done = data => {
+      screen.remove();
+      document.body.classList.remove('is-locked');
+      resolve(data);
+    };
+
+    if(!cryptoAvailable()){
+      error.textContent = 'Браузер не даёт шифрование: открой сайт по https.';
+      submit.disabled = true;
+    }
+
+    screen.querySelector('#lock-form').addEventListener('submit', async e=>{
+      e.preventDefault();
+      submit.disabled = true;
+      error.textContent = '';
+      submit.textContent = 'Проверяю…';
+      try{
+        done(await openEnvelope(env, input.value));
+      }catch(err){
+        error.textContent = 'Пароль не подошёл.';
+        input.select();
+        submit.disabled = false;
+        submit.textContent = 'Открыть';
+      }
+    });
+
+    screen.querySelector('.lock-forgot').addEventListener('click', ()=>{
+      const ok = confirm('Без пароля данные не расшифровать — ни мне, ни кому-то ещё.\n\n' +
+        'Если есть скачанная копия, её можно будет загрузить после сброса.\n\n' +
+        'Стереть всё на этом устройстве и начать заново?');
+      if(!ok) return;
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(SUMM_SYNC_KEY);
+      done(null);
+    });
+  });
+}
+
+function readPasswordPair(){
+  const a = document.getElementById('lock-new').value;
+  const b = document.getElementById('lock-repeat').value;
+  if(a.length < LOCK_MIN_LENGTH) return {why:`Пароль короче ${LOCK_MIN_LENGTH} символов.`};
+  if(a !== b) return {why:'Пароли не совпадают.'};
+  return {password:a};
+}
+
+async function enableLock(){
+  if(!cryptoAvailable()){ openPrivacy('Браузер не даёт шифрование: открой сайт по https.', true); return; }
+  const pair = readPasswordPair();
+  if(pair.why){ showPrivacyMsg(pair.why, true); return; }
+  showPrivacyMsg('Шифрую…');
+  const wasOn = !!LOCK_KEY;
+  LOCK_SALT = crypto.getRandomValues(new Uint8Array(16));
+  LOCK_KEY = await deriveLockKey(pair.password, LOCK_SALT, LOCK_ITER);
+  await saveData();
+  openPrivacy(wasOn ? 'Пароль сменён.' : 'Пароль включён. Теперь без него данные на этом устройстве не прочитать.');
+}
+
+async function disableLock(){
+  if(!confirm('Выключить пароль? Данные снова будут храниться в этом браузере без шифрования.')) return;
+  LOCK_KEY = null;
+  LOCK_SALT = null;
+  await saveData();
+  openPrivacy('Пароль выключен.');
+}
+
+function lockNow(){
+  saveQueue.then(()=>location.reload());
+}
+
+/* свернул приложение больше чем на 5 минут — при возврате спросим пароль */
+let hiddenSince = 0;
+document.addEventListener('visibilitychange', ()=>{
+  if(!LOCK_KEY) return;
+  if(document.hidden){ hiddenSince = Date.now(); return; }
+  if(hiddenSince && Date.now() - hiddenSince > AUTOLOCK_MS) lockNow();
+  hiddenSince = 0;
+});
+
+/* ---- окно «Приватность» ---- */
+
+function showPrivacyMsg(text, isError){
+  const el = document.getElementById('privacy-msg');
+  if(!el) return;
+  el.textContent = text || '';
+  el.classList.toggle('is-error', !!isError);
+}
+
+function openPrivacy(message, isError, mode){
+  const box = document.getElementById('modal-box');
+  const lockOn = !!LOCK_KEY;
+  const passwordFields = `
+      <div class="field"><label for="lock-new">${lockOn ? 'Новый пароль' : 'Пароль'}</label>
+        <input id="lock-new" type="password" autocomplete="new-password" minlength="${LOCK_MIN_LENGTH}"></div>
+      <div class="field"><label for="lock-repeat">Ещё раз</label>
+        <input id="lock-repeat" type="password" autocomplete="new-password"></div>`;
+
+  const scheduleBlock = hasSchedule()
+    ? `<p class="privacy-status on">Подключено на этом устройстве.</p>
+       <div class="privacy-actions"><button class="btn-ghost" onclick="forgetSchedule()">Убрать с этого устройства</button></div>`
+    : `<p class="privacy-status">На этом устройстве не подключено. В коде сайта оно лежит
+         зашифрованным — без ключа его никто не прочитает.</p>
+       <div class="field"><label for="personal-key">Ключ</label>
+         <input id="personal-key" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="22 символа"></div>
+       <div class="privacy-actions"><button class="btn-primary" onclick="submitPersonalKey()">Подключить</button></div>`;
+
+  let lockBlock;
+  if(lockOn && mode !== 'change'){
+    lockBlock = `<p class="privacy-status on">Включён. Если свернуть приложение больше чем на 5 минут, пароль спросят снова.</p>
+      <div class="privacy-actions">
+        <button class="btn-ghost" onclick="disableLock()">Выключить</button>
+        <button class="btn-ghost" onclick="openPrivacy('', false, 'change')">Сменить</button>
+        <button class="btn-primary" onclick="lockNow()">Закрыть сейчас</button>
+      </div>`;
+  } else {
+    lockBlock = `<p class="privacy-status">${lockOn ? 'Придумай новый пароль.' :
+        'Выключен. Включи, если телефоном или компьютером пользуется кто-то ещё.'}</p>
+      ${passwordFields}
+      <p class="import-note">Пароль нигде не хранится. Забудешь — данные не восстановить,
+        поэтому сначала <button class="link-btn" onclick="exportBackup()">скачай копию</button>.</p>
+      <div class="privacy-actions">
+        ${lockOn ? '<button class="btn-ghost" onclick="openPrivacy()">Отмена</button>' : ''}
+        <button class="btn-primary" onclick="enableLock()">${lockOn ? 'Сменить пароль' : 'Включить пароль'}</button>
+      </div>`;
+  }
+
+  box.innerHTML = `<h3>Приватность</h3>
+    <p class="import-note">Задачи, домашка, суммативки, заметки и всё остальное хранятся только
+      в этом браузере и никуда не отправляются. Другие люди, открыв сайт, видят пустой органайзер.</p>
+    <div class="privacy-msg${isError ? ' is-error' : ''}" id="privacy-msg" role="status">${escapeHtml(message || '')}</div>
+    <section class="privacy-section">
+      <h4>Твоё расписание</h4>
+      ${scheduleBlock}
+    </section>
+    <section class="privacy-section">
+      <h4>Пароль на вход</h4>
+      ${lockBlock}
+    </section>
+    <div class="modal-actions"><button class="btn-secondary" onclick="closeModal()">Закрыть</button></div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+
+async function submitPersonalKey(){
+  const input = document.getElementById('personal-key');
+  showPrivacyMsg('Проверяю ключ…');
+  const res = await unlockPersonal(input ? input.value : '');
+  if(res.ok) openPrivacy(personalOkText(res.added));
+  else showPrivacyMsg(res.why, true);
 }
 
 /* ============ INIT ============ */
