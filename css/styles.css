@@ -2407,3 +2407,5 @@ body.is-locked{ overflow:hidden; }
   .plan-side:not(:has(.plan-due, .plan-progress)){ display:none; }
   .plan-chev{ position:absolute; right:12px; top:16px; }
 }
+.plan-refs{ display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin-bottom:12px; }
+.plan-refs .plan-ref{ margin-bottom:0; }
