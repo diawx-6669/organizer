@@ -797,6 +797,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
     if(btn.dataset.view === 'calendar') renderCalendar();
+    if(btn.dataset.view === 'plan'){ planEnter = true; renderPlan(); }
     if(btn.dataset.view === 'schedule') renderSchedule();
     closeMobileNav();
     syncBottomNav();
@@ -4022,6 +4023,9 @@ const PLAN_BLOB = {
 const PLAN_SOON_DAYS = 7;
 let planOpen = new Set();
 let planShowDone = false;
+let planEnter = false;        // раздел только что открыли — строки въезжают по очереди
+let planJustOpened = null;    // раскрыли строку — анимируем только её
+let planJustDone = null;      // отметили — галочка «хлопает»
 
 function hasPlan(){
   return !!(DATA.plan && Array.isArray(DATA.plan.items));
@@ -4110,7 +4114,7 @@ function togglePlanDone(id, evt){
   const item = planFind(id);
   if(!item) return;
   item.done = !item.done;
-  if(item.done){ logActivity(); if(evt && evt.currentTarget) burstConfetti(evt.currentTarget); }
+  if(item.done){ logActivity(); planJustDone = id; if(evt && evt.currentTarget) burstConfetti(evt.currentTarget); }
   saveData();
   renderAll();
 }
@@ -4126,7 +4130,7 @@ function togglePlanStep(id, index){
 }
 
 function togglePlanOpen(id){
-  if(planOpen.has(id)) planOpen.delete(id); else planOpen.add(id);
+  if(planOpen.has(id)) planOpen.delete(id); else { planOpen.add(id); planJustOpened = id; }
   renderPlan();
 }
 
@@ -4135,8 +4139,10 @@ function openPlanItem(id){
   if(!item) return;
   if(item.done) planShowDone = true;
   planOpen.add(id);
-  goToView('plan');
-  renderPlan();
+  planJustOpened = id;
+  const view = document.getElementById('view-plan');
+  if(view && view.classList.contains('active')) renderPlan();
+  else goToView('plan');                     // переход сам перерисует раздел
   setTimeout(()=>{
     const el = document.getElementById('plan-' + id);
     if(el) el.scrollIntoView({block:'center', behavior:'smooth'});
@@ -4205,10 +4211,10 @@ function planDetailHtml(item){
       <button class="plan-done-btn" onclick="togglePlanDone('${item.id}', event)">${item.done ? 'вернуть в работу' : 'готово'}</button>
       <button class="plan-remove" onclick="removePlanItem('${item.id}')">убрать</button>
     </div>`);
-  return `<div class="plan-detail" id="plan-detail-${item.id}">${parts.join('')}</div>`;
+  return `<div class="plan-detail${planJustOpened === item.id ? ' is-opening' : ''}" id="plan-detail-${item.id}">${parts.join('')}</div>`;
 }
 
-function planItemHtml(item){
+function planItemHtml(item, index){
   const open = planOpen.has(item.id);
   const steps = item.steps && item.steps.length
     ? `<span class="plan-progress">${item.steps.filter(s=>s.done).length}/${item.steps.length}</span>` : '';
@@ -4218,7 +4224,9 @@ function planItemHtml(item){
     ? `<span class="plan-due${planDueCls(item)}">${escapeHtml(planDueText(item))}${item.time && !item.done ? ' · ' + escapeHtml(item.time.split(' (')[0]) : ''}</span>` : '';
   const meta = [item.summary ? `<span>${escapeHtml(item.summary)}</span>` : '', tags, item.warn ? '<span class="plan-tag warn">важно</span>' : '']
     .filter(Boolean).join('');
-  return `<div class="plan-item${item.done ? ' done' : ''}${open ? ' open' : ''}" id="plan-${item.id}">
+  const cls = (item.done ? ' done' : '') + (open ? ' open' : '') + (item.star ? ' starred' : '') +
+    (planJustDone === item.id ? ' just-done' : '');
+  return `<div class="plan-item${cls}" id="plan-${item.id}" style="--i:${Math.min(index || 0, 14)}">
     <div class="plan-row${item.kind === 'deadline' ? ' has-date' : ''}">
       <button class="check ${item.done ? 'done' : ''}" onclick="togglePlanDone('${item.id}', event)"
         aria-label="${item.done ? 'Снять отметку' : 'Отметить сделанным'}: ${escapeHtml(item.title)}" aria-pressed="${item.done}"></button>
@@ -4287,33 +4295,61 @@ function renderPlan(){
 
   const hotHtml = hot.length
     ? `<div class="plan-hot">
-        <div class="plan-hot-title">сейчас горит</div>
-        ${hot.map(i => `<button class="plan-hot-row" onclick="openPlanItem('${i.id}')">
+        <div class="plan-hot-title"><i class="plan-live" aria-hidden="true"></i>сейчас горит</div>
+        ${hot.map((i, n) => `<button class="plan-hot-row" style="--i:${n}" onclick="openPlanItem('${i.id}')">
             <span class="plan-due${planDueCls(i)}">${escapeHtml(dueLabel(i.date))}${i.time ? ' · ' + escapeHtml(i.time.split(' (')[0]) : ''}</span>
             <b>${escapeHtml(i.title)}<em>${i.kind === 'todo' ? 'дело' : 'дедлайн'}</em></b>
             ${i.steps && i.steps.length ? `<small>${i.steps.filter(s=>s.done).length}/${i.steps.length} шагов</small>` : ''}
           </button>`).join('')}
       </div>` : '';
 
-  const stats = `<div class="plan-stats">
-      <span><b>${openD.length}</b> ${plural(openD.length, 'дедлайн', 'дедлайна', 'дедлайнов')} впереди</span>
-      <span><b>${openT.length}</b> ${plural(openT.length, 'дело', 'дела', 'дел')}</span>
-      <span><b>${ideas.length}</b> ${plural(ideas.length, 'идея', 'идеи', 'идей')}</span>
+  const total = deadlines.length + todos.length;
+  const doneAll = doneD.length + doneT.length;
+  const pct = total ? Math.round(doneAll / total * 100) : 0;
+  const next = openD.find(i => i.date && !i.when && planDays(i) >= 0);
+  const nextDays = next ? planDays(next) : null;
+  const nextHtml = next ? `<button class="plan-next" onclick="openPlanItem('${next.id}')">
+      <span class="plan-next-label">ближайший дедлайн</span>
+      <span class="plan-next-count"><b>${nextDays === 0 ? 'сегодня' : nextDays}</b>${nextDays === 0 ? '' : ' ' + plural(nextDays, 'день', 'дня', 'дней')}</span>
+      <span class="plan-next-title">${escapeHtml(next.title)}${next.time ? ' · ' + escapeHtml(next.time.split(' (')[0]) : ''}</span>
+    </button>` : '';
+  const R = 34, C = 2 * Math.PI * R;
+  const stats = `<div class="plan-hero">
+      <div class="plan-ring" role="img" aria-label="Сделано ${doneAll} из ${total}">
+        <svg viewBox="0 0 80 80" aria-hidden="true">
+          <defs><linearGradient id="planRingGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--gold)"/><stop offset="1" stop-color="var(--tab4)"/></linearGradient></defs>
+          <circle class="plan-ring-track" cx="40" cy="40" r="${R}"/>
+          <circle class="plan-ring-fill" cx="40" cy="40" r="${R}" stroke-dasharray="${C.toFixed(1)}"
+            stroke-dashoffset="${(C * (1 - pct / 100)).toFixed(1)}" style="--from:${C.toFixed(1)}"/>
+        </svg>
+        <span class="plan-ring-num"><b>${pct}%</b><small>${doneAll}/${total}</small></span>
+      </div>
+      <div class="plan-hero-stats">
+        <span><b>${openD.length}</b> ${plural(openD.length, 'дедлайн', 'дедлайна', 'дедлайнов')}</span>
+        <span><b>${openT.length}</b> ${plural(openT.length, 'дело', 'дела', 'дел')}</span>
+        <span><b>${ideas.length}</b> ${plural(ideas.length, 'идея', 'идеи', 'идей')}</span>
+      </div>
+      ${nextHtml}
     </div>`;
 
   const deadlineHtml = planGroups(openD).map(g =>
     `<div class="plan-group plan-group-${g.key === 'late' || g.key === 'soon' ? g.key : 'month'}">
       <div class="plan-group-title">${escapeHtml(g.title)}<span>${g.items.length}</span></div>
-      <div class="plan-list">${g.items.map(planItemHtml).join('')}</div>
+      <div class="plan-list">${g.items.map((it, n) => planItemHtml(it, n)).join('')}</div>
     </div>`).join('') || '<div class="empty-note">Все дедлайны закрыты.</div>';
 
   const doneCount = doneD.length + doneT.length;
   const doneHtml = doneCount
     ? `<button class="plan-done-toggle" onclick="planShowDone=!planShowDone; renderPlan()" aria-expanded="${planShowDone}">
          ${planShowDone ? 'скрыть' : 'показать'} сделанное · ${doneCount}</button>
-       ${planShowDone ? `<div class="plan-list">${[...doneD, ...doneT].map(planItemHtml).join('')}</div>` : ''}`
+       ${planShowDone ? `<div class="plan-list">${[...doneD, ...doneT].map((it, n) => planItemHtml(it, n)).join('')}</div>` : ''}`
     : '';
 
+  wrap.classList.toggle('is-entering', planEnter);
+  planEnter = false;
+  planJustOpened = null;
+  planJustDone = null;
   wrap.innerHTML = `
     ${stats}
     ${hotHtml}
@@ -4324,12 +4360,12 @@ function renderPlan(){
     </section>
     <section class="plan-section" aria-labelledby="plan-h-todo">
       <h3 id="plan-h-todo">Надо сделать</h3>
-      <div class="plan-list">${openT.map(planItemHtml).join('') || '<div class="empty-note">Все дела сделаны.</div>'}</div>
+      <div class="plan-list">${openT.map((it, n) => planItemHtml(it, n)).join('') || '<div class="empty-note">Все дела сделаны.</div>'}</div>
       ${planAddHtml('todo', 'Добавить дело…')}
     </section>
     <section class="plan-section" aria-labelledby="plan-h-ideas">
       <h3 id="plan-h-ideas">Идеи</h3>
-      <div class="plan-ideas">${ideas.map(i => `<div class="plan-idea">
+      <div class="plan-ideas">${ideas.map((i, n) => `<div class="plan-idea" style="--i:${n}">
           <span>${escapeHtml(i.title)}</span>
           <button class="icon-btn del" aria-label="Убрать идею: ${escapeHtml(i.title)}" onclick="removePlanItem('${i.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
         </div>`).join('') || '<div class="empty-note">Идей пока нет.</div>'}</div>
