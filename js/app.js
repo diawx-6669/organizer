@@ -4846,11 +4846,58 @@ document.addEventListener('keydown', (e)=>{
     h.dataset.split = '1';
     const text = h.textContent;
     h.setAttribute('aria-label', text);
-    h.innerHTML = [...text].map((ch, i) => ch === ' '
-      ? '<span class="split-space" aria-hidden="true"> </span>'
-      : `<span class="split-char" aria-hidden="true" style="--i:${i}">${escapeHtml(ch)}</span>`).join('');
+    let i = 0;   // слово целиком не переносится, буквы внутри влетают по одной
+    h.innerHTML = text.split(' ').map(word =>
+      '<span class="split-word" aria-hidden="true">' +
+      [...word].map(ch => `<span class="split-char" style="--i:${i++}">${escapeHtml(ch)}</span>`).join('') +
+      '</span>').join(' ');
   }
   if(!reduce) document.querySelectorAll('.section-head h2').forEach(splitHeading);
+
+  /* у каждого раздела свой живой предмет */
+  const now = new Date();
+  const MON = ['ЯНВ','ФЕВ','МАР','АПР','МАЙ','ИЮН','ИЮЛ','АВГ','СЕН','ОКТ','НОЯ','ДЕК'][now.getMonth()];
+  const ART = {
+    plan: `<div class="rkw"><div class="rk"><div class="rk-body"></div><i class="rk-win"></i><i class="rk-fin l"></i><i class="rk-fin r"></i><i class="rk-flame"></i></div></div>
+           <i class="st s1"></i><i class="st s2"></i><i class="st s3"></i>`,
+    schedule: `<div class="hg"><i class="hg-rod l"></i><i class="hg-rod r"></i><div class="hg-glass"><i class="hg-sand top"></i><i class="hg-stream"></i><i class="hg-sand bot"></i></div><i class="hg-cap t"></i><i class="hg-cap b"></i></div>`,
+    lessons: `<div class="bk"><i class="bk-b b1"></i><i class="bk-b b2"></i><i class="bk-b b3"></i><div class="bk-open"><i class="bk-pg"></i><i class="bk-pg p2"></i></div></div>`,
+    subjects: `<div class="at"><div class="at-orb o1"><div class="at-spin"><i></i></div></div><div class="at-orb o2"><div class="at-spin"><i></i></div></div><div class="at-orb o3"><div class="at-spin"><i></i></div></div><i class="at-core"></i></div>`,
+    homework: `<svg class="hw-svg" viewBox="0 0 130 112">
+        <defs><linearGradient id="hwPaper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe6ec"/></linearGradient>
+          <linearGradient id="hwPen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f0a860"/><stop offset=".5" stop-color="#ffd59a"/><stop offset="1" stop-color="#c97a2e"/></linearGradient></defs>
+        <g transform="rotate(-8 60 56)">
+          <rect x="18" y="12" width="84" height="88" rx="8" fill="url(#hwPaper)"/>
+          <g stroke="#c9d6e0" stroke-width="1"><line x1="30" y1="40" x2="94" y2="40"/><line x1="30" y1="56" x2="94" y2="56"/><line x1="30" y1="72" x2="94" y2="72"/><line x1="30" y1="88" x2="94" y2="88"/></g>
+          <g fill="#6d8291">${[22,36,50,64,78,92].map(y=>`<circle cx="18" cy="${y}" r="3.5"/>`).join('')}</g>
+          <path class="hw-ink i1" d="M32 37 q5 -8 10 0 t10 0 t10 0 t10 0 t10 0"/>
+          <path class="hw-ink i2" d="M32 53 q5 -8 10 0 t10 0 t10 0 t10 0"/>
+          <g class="hw-pen"><g transform="translate(32 37) rotate(-48)">
+            <rect x="0" y="-4" width="44" height="8" rx="2" fill="url(#hwPen)"/>
+            <rect x="40" y="-4" width="8" height="8" rx="1.5" fill="#f2a8d0"/><rect x="37" y="-4" width="4" height="8" fill="#c4d2db"/>
+            <polygon points="0,-4 -9,0 0,4" fill="#f4dcc0"/><polygon points="-6,-1.4 -9,0 -6,1.4" fill="#33383f"/>
+          </g></g>
+        </g></svg>`,
+    summatives: `<div class="tr"><i class="tr-h l"></i><i class="tr-h r"></i><div class="tr-cup"></div><i class="tr-stem"></i><i class="tr-base"></i><i class="sp s1"></i><i class="sp s2"></i><i class="sp s3"></i></div>`,
+    events: `<div class="tk"><div class="tk-card"><b>VIP</b></div><i class="cf c1"></i><i class="cf c2"></i><i class="cf c3"></i><i class="cf c4"></i></div>`,
+    goals: `<div class="tg"><i class="tg-board"></i><i class="tg-arrow"></i></div>`,
+    notes: `<div class="nt"><i class="nt-n n1"></i><i class="nt-n n2"></i><i class="nt-n n3"></i></div>`,
+    calendar: `<div class="fc"><div class="fc-page"><b class="fc-head">${MON}</b><b class="fc-num">${now.getDate()}</b></div><i class="fc-flap"></i><i class="fc-ring r1"></i><i class="fc-ring r2"></i></div>`,
+    fun: `<div class="vn"><div class="vn-rec"><i class="vn-label"></i></div><i class="vn-arm"></i><i class="mn">♪</i><i class="mn m2">♫</i></div>`
+  };
+  Object.entries(ART).forEach(([view, html])=>{
+    const head = document.querySelector(`#view-${view} .section-head`);
+    if(!head) return;
+    const art = document.createElement('div');
+    art.className = 'sect-art art-' + view;
+    art.setAttribute('aria-hidden', 'true');
+    art.innerHTML = `<div class="art-glow"></div><div class="art-stage">${html}</div>`;
+    head.insertBefore(art, head.querySelector(':scope > .add-btn'));
+    head.classList.add('has-art');
+  });
+  const heroObj = document.querySelector('.hero-object');
+  if(heroObj) heroObj.insertAdjacentHTML('beforeend',
+    '<i class="hero-orb o1"></i><i class="hero-orb o2"></i><i class="hero-orb o3"></i><i class="hero-orb o4"></i>');
 
   /* числа отсчитываются от нуля */
   function countUp(el){
@@ -4947,7 +4994,7 @@ document.addEventListener('keydown', (e)=>{
   };
 
   const SPOT_SEL = '.ledger, .plan-list, .goal-card, .quick-action, .stat-list';
-  const TILT_SEL = '.plan-hero, .plan-idea, .goal-card, .quick-action';
+  const TILT_SEL = '.plan-hero, .plan-idea, .goal-card, .quick-action, .sect-art';
   const MAG_SEL = '.add-btn, .plan-next, .urgent-go, .btn-primary';
   let tiltEl = null, magEl = null, frame = 0, last = null;
 
