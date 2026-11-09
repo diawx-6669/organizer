@@ -2215,3 +2215,195 @@ body.is-locked{ overflow:hidden; }
 .lock-submit{ padding:11px 18px; }
 .lock-submit:disabled{ opacity:.6; cursor:default; }
 .lock-forgot{ font-size:12px; color: var(--text-faint); margin-top:4px; }
+
+/* ============ МОЙ ПЛАН ============ */
+.tab-btn[hidden]{ display:none !important; }
+
+.plan-stats{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.plan-stats span{
+  padding:6px 12px; border-radius:20px;
+  border:1px solid var(--line); background: var(--surface);
+  font-size:12px; color: var(--text-dim);
+}
+.plan-stats b{ color: var(--text); font-weight:700; margin-right:2px; }
+
+.plan-hot{
+  border:1px solid rgba(242,112,92,.35);
+  background: var(--brick-soft);
+  border-radius: var(--radius-lg);
+  padding:12px 14px; margin-bottom:26px;
+}
+.plan-hot-title{
+  font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+  color: var(--brick); font-weight:600; margin-bottom:6px;
+}
+.plan-hot-row{
+  display:flex; align-items:baseline; gap:10px; width:100%;
+  padding:8px 2px; background:none; border:none; text-align:left; cursor:pointer;
+  border-top:1px solid var(--line-soft); color: var(--text); font-size:13.5px;
+}
+.plan-hot-row:first-of-type{ border-top:none; }
+.plan-hot-row .plan-due{ min-width:118px; }
+.plan-hot-row b{ font-weight:600; flex:1; min-width:0; }
+.plan-hot-row small{ color: var(--text-faint); font-size:11px; white-space:nowrap; }
+.plan-hot-row:hover b{ color: var(--gold); }
+
+.plan-section{ margin-bottom:30px; }
+.plan-section:last-child{ margin-bottom:0; }
+.plan-section h3{ font-size:18px; margin-bottom:4px; }
+.plan-hint{ font-size:12px; color: var(--text-faint); margin-bottom:14px; line-height:1.5; }
+.plan-section > .plan-list{ margin-top:10px; }
+
+.plan-group{ margin-bottom:18px; }
+.plan-group-title{
+  display:flex; align-items:center; gap:8px;
+  font-size:11.5px; text-transform:uppercase; letter-spacing:.08em;
+  color: var(--text-faint); margin:0 0 8px 2px;
+}
+.plan-group-title span{
+  font-size:10.5px; padding:1px 7px; border-radius:10px;
+  background: var(--surface-2); color: var(--text-dim); letter-spacing:0;
+}
+.plan-group-soon .plan-group-title, .plan-group-late .plan-group-title{ color: var(--brick); }
+
+.plan-list{
+  border:1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow:hidden;
+}
+.plan-item{ border-bottom:1px solid var(--line-soft); }
+.plan-item:last-child{ border-bottom:none; }
+.plan-item.open{ background: var(--surface-2); }
+.plan-row{
+  display:flex; align-items:center; gap:12px;
+  padding:12px 14px 12px 16px;
+}
+.plan-row .check{ background:none; padding:0; flex-shrink:0; }
+.plan-head{
+  flex:1; min-width:0;
+  display:flex; flex-direction:column; gap:4px;
+  background:none; border:none; padding:2px 0; text-align:left; cursor:pointer;
+}
+.plan-title{ font-size:14px; color: var(--text); font-weight:500; line-height:1.35; }
+.plan-star{ color: var(--tab1); margin-right:6px; }
+.plan-meta{
+  display:flex; flex-wrap:wrap; align-items:center; gap:5px 8px;
+  font-size:11.5px; color: var(--text-faint); line-height:1.4;
+}
+.plan-tag{
+  font-size:10.5px; padding:1px 8px; border-radius:20px;
+  border:1px solid var(--line-strong); color: var(--text-dim); white-space:nowrap;
+}
+.plan-tag.free{ color: var(--sage); border-color: currentColor; }
+.plan-tag.paid{ color: var(--tab1); border-color: currentColor; }
+.plan-tag.warn{ color: var(--brick); border-color: currentColor; }
+
+.plan-date{
+  width:46px; flex-shrink:0; text-align:center;
+  border:1px solid var(--line); border-radius:10px;
+  padding:5px 0 4px; background: var(--surface-2);
+}
+.plan-date b{ display:block; font-family:'Space Grotesk', sans-serif; font-size:17px; line-height:1; color: var(--text); }
+.plan-date small{ display:block; margin-top:3px; font-size:9.5px; color: var(--text-faint); white-space:nowrap; }
+.plan-date.overdue, .plan-date.due-today{ border-color: rgba(242,112,92,.5); background: var(--brick-soft); }
+.plan-date.overdue b, .plan-date.due-today b{ color: var(--brick); }
+.plan-date.due-soon{ border-color: rgba(240,168,96,.5); }
+.plan-date.due-soon b{ color: var(--tab1); }
+
+.plan-side{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.plan-progress{ font-size:11px; color: var(--text-faint); }
+.plan-due{ font-size:11.5px; color: var(--text-dim); white-space:nowrap; }
+.plan-due.overdue, .plan-due.due-today{ color: var(--brick); font-weight:600; }
+.plan-due.due-soon{ color: var(--tab1); font-weight:600; }
+.plan-chev{ color: var(--text-faint); transition: transform .15s ease; }
+.plan-item.open .plan-chev{ transform: rotate(180deg); }
+
+.plan-item.done .plan-title{ color: var(--text-faint); text-decoration: line-through; }
+.plan-item.done .plan-date{ opacity:.5; }
+
+.plan-detail{ padding:2px 16px 16px 44px; }
+.plan-warn{
+  padding:10px 12px; margin-bottom:12px;
+  border-left:3px solid var(--brick); border-radius:6px;
+  background: var(--brick-soft); color: var(--text);
+  font-size:12.5px; line-height:1.5;
+}
+.plan-facts{ display:flex; flex-direction:column; gap:10px; margin-bottom:12px; }
+.plan-facts dt{
+  font-size:10.5px; text-transform:uppercase; letter-spacing:.07em;
+  color: var(--gold); margin-bottom:2px;
+}
+.plan-facts dd{ font-size:13px; color: var(--text); line-height:1.55; }
+.plan-block{ margin-bottom:12px; }
+.plan-block-title{ font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color: var(--gold); }
+.plan-block .step{ font-size:13px; padding:4px 0; }
+.plan-ref{
+  display:inline-block; margin-bottom:12px;
+  background:none; border:none; padding:0; cursor:pointer;
+  color: var(--gold); font-size:12.5px;
+}
+.plan-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.plan-link{
+  padding:7px 12px; border-radius:20px;
+  border:1px solid var(--gold-soft); background: var(--gold-soft);
+  color: var(--gold); font-size:12px; font-weight:500; text-decoration:none;
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.plan-link:hover{ background: rgba(79,209,197,.22); }
+.plan-done-btn, .plan-remove{
+  padding:7px 12px; border-radius:20px; cursor:pointer; font-size:12px;
+  border:1px solid var(--line-strong); background:none; color: var(--text-dim);
+}
+.plan-done-btn:hover{ color: var(--sage); border-color: var(--sage); }
+.plan-remove{ border-color: transparent; color: var(--text-faint); margin-left:auto; }
+.plan-remove:hover{ color: var(--brick); }
+
+.plan-add{ display:flex; gap:8px; margin-top:10px; }
+.plan-add input{
+  flex:1; min-width:0; padding:10px 13px;
+  border:1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text); font-size:13px;
+}
+
+.plan-ideas{ display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:10px; }
+.plan-idea{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:8px;
+  padding:14px 14px 14px 16px;
+  border:1px solid var(--line); border-left:3px solid var(--tab1);
+  border-radius: var(--radius-md); background: var(--surface);
+  font-size:13.5px; line-height:1.45; color: var(--text);
+}
+.plan-ideas .empty-note{ grid-column:1 / -1; }
+
+.plan-done-toggle{
+  background:none; border:1px dashed var(--line-strong); border-radius:20px;
+  padding:7px 14px; margin-bottom:10px; cursor:pointer;
+  color: var(--text-faint); font-size:12px;
+}
+.plan-done-toggle:hover{ color: var(--text); }
+
+.plan-cal-tag{ cursor:pointer; color: var(--gold); border-color: var(--gold-soft); }
+.urgent-plan{ cursor:pointer; font-family:inherit; }
+
+@media (max-width:520px){
+  .plan-row{ gap:10px; padding:12px 12px 12px 14px; align-items:flex-start; }
+  .plan-row .check{ margin-top:12px; }
+  .plan-side{ flex-direction:column; align-items:flex-end; gap:4px; margin-top:2px; }
+  .plan-due{ font-size:11px; }
+  .plan-detail{ padding:2px 14px 16px 14px; }
+  .plan-hot-row{ flex-wrap:wrap; gap:2px 10px; }
+  .plan-hot-row .plan-due{ min-width:0; }
+  .plan-hot-row b{ flex-basis:100%; }
+}
+.plan-hot-row b em{
+  font-style:normal; font-weight:400; font-size:10.5px; margin-left:8px;
+  color: var(--text-faint); text-transform:uppercase; letter-spacing:.06em;
+}
+@media (max-width:520px){
+  .plan-row{ flex-wrap:wrap; position:relative; padding-right:34px; }
+  .plan-side{ order:3; width:100%; flex-direction:row; justify-content:flex-start; gap:10px; padding-left:26px; margin-top:0; }
+  .plan-row.has-date .plan-side{ padding-left:82px; }
+  .plan-side:not(:has(.plan-due, .plan-progress)){ display:none; }
+  .plan-chev{ position:absolute; right:12px; top:16px; }
+}

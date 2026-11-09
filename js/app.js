@@ -753,6 +753,7 @@ function applyImport(mode){
     });
     DATA.subjectInfo = Object.assign({}, incoming.subjectInfo || {}, DATA.subjectInfo || {});
     if(!hasSchedule() && incoming.schedule) DATA.schedule = incoming.schedule;
+    if(!hasPlan() && incoming.plan && Array.isArray(incoming.plan.items)) DATA.plan = incoming.plan;
     DATA_SETS.forEach(key=>{
       incoming[key].forEach(v => { if(!DATA[key].includes(v)) DATA[key].push(v); });
     });
@@ -1047,7 +1048,8 @@ function renderUrgent(){
   if(b.tomorrow.length) parts.push({cls:'soft', n:b.tomorrow.length, word:['задача','задачи','задач'], tail:' на завтра'});
   if(b.sorSoon.length)  parts.push({cls:'bad',  n:b.sorSoon.length,  word:['СОР','СОР','СОР'], tail:' в ближайшие дни'});
 
-  if(parts.length === 0){
+  const hot = planHot();
+  if(parts.length === 0 && hot.length === 0){
     wrap.classList.remove('on');
     wrap.innerHTML = '';
     return;
@@ -1058,7 +1060,8 @@ function renderUrgent(){
   wrap.innerHTML =
     parts.map(p => `<span class="urgent-chip ${p.cls}"><b>${p.n}</b> ${plural(p.n, ...p.word)}${p.tail}</span>`).join('') +
     (minutes ? `<span class="urgent-time">≈ ${escapeHtml(formatMinutes(minutes))} работы</span>` : '') +
-    `<button class="urgent-go" onclick="goToView('homework')">Открыть</button>`;
+    (hot.length ? `<button class="urgent-chip warn urgent-plan" onclick="goToView('plan')"><b>${hot.length}</b> в плане горит →</button>` : '') +
+    (parts.length ? `<button class="urgent-go" onclick="goToView('homework')">Открыть</button>` : '');
 }
 
 
@@ -2861,6 +2864,8 @@ function renderCounts(){
   document.getElementById('cnt-goals').textContent = DATA.goals.filter(g=>goalPercent(g)<100).length;
   document.getElementById('cnt-notes').textContent = DATA.notes.length;
   document.getElementById('cnt-fun').textContent = DATA.fun.filter(i=>!i.done).length;
+  const cntPlan = document.getElementById('cnt-plan');
+  if(cntPlan) cntPlan.textContent = hasPlan() ? DATA.plan.items.filter(i => !i.done && i.kind !== 'idea').length : 0;
 }
 
 function renderAll(){
@@ -2874,6 +2879,7 @@ function renderAll(){
   renderGoals();
   renderNotes();
   renderFun();
+  renderPlan();
   renderCounts();
   renderCalendar();
   syncBottomNav();
@@ -3239,7 +3245,10 @@ function dayItemsFor(dateObj){
   const hw = DATA.homework.filter(h=>h.due && new Date(h.due).toDateString()===ds);
   const summ = DATA.summatives.filter(s=>s.due && new Date(s.due).toDateString()===ds);
   const ev = DATA.events.filter(e=>e.date && new Date(e.date).toDateString()===ds);
-  return {hw, summ, ev};
+  const plan = hasPlan()
+    ? DATA.plan.items.filter(p=>p.date && !p.when && p.kind !== 'idea' && new Date(p.date).toDateString()===ds)
+    : [];
+  return {hw, summ, ev, plan};
 }
 
 function renderCalendar(){
@@ -3281,11 +3290,12 @@ function renderCalendar(){
     const cell = document.createElement('div');
     cell.className = 'cal-cell' + (c.other? ' other':'') + (c.dateObj.toDateString()===today.toDateString() ? ' today':'');
     if(selectedDay && c.dateObj.toDateString()===selectedDay.toDateString()) cell.classList.add('selected');
-    const {hw, summ, ev} = dayItemsFor(c.dateObj);
+    const {hw, summ, ev, plan} = dayItemsFor(c.dateObj);
     let dots = '';
     hw.forEach(()=> dots += `<i style="background:var(--tab1)"></i>`);
     summ.forEach(()=> dots += `<i style="background:var(--brick)"></i>`);
     ev.forEach(()=> dots += `<i style="background:var(--tab4)"></i>`);
+    plan.forEach(p=> dots += `<i style="background:var(--gold)${p.done ? ';opacity:.35' : ''}"></i>`);
     cell.innerHTML = `<div class="cal-daynum">${c.dayNum}</div><div class="cal-dots">${dots}</div>`;
     cell.addEventListener('click', ()=>{ selectedDay = c.dateObj; renderCalendar(); showDayPanel(c.dateObj); });
     grid.appendChild(cell);
@@ -3298,7 +3308,7 @@ function showDayPanel(dateObj){
   document.getElementById('day-panel-title').innerHTML =
     escapeHtml(dateObj.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'})) +
     `<button class="copy-day" onclick="copyDay('${schedDateKey(dateObj)}')">скопировать</button>`;
-  const {hw, summ, ev} = dayItemsFor(dateObj);
+  const {hw, summ, ev, plan} = dayItemsFor(dateObj);
   const listEl = document.getElementById('day-panel-list');
   listEl.innerHTML = '';
 
@@ -3315,7 +3325,7 @@ function showDayPanel(dateObj){
     listEl.appendChild(block);
   }
 
-  if(hw.length===0 && summ.length===0 && ev.length===0){
+  if(hw.length===0 && summ.length===0 && ev.length===0 && plan.length===0){
     const note = document.createElement('div');
     note.className = 'empty-note';
     note.textContent = lessons.length
@@ -3340,6 +3350,15 @@ function showDayPanel(dateObj){
     row.className = 'item-row';
     row.innerHTML = `<span></span><div class="item-main"><div class="item-title">${escapeHtml(item.title)}</div><div class="item-meta">${escapeHtml(item.type||'мероприятие')}${item.link? ' · ' + linkHtml(item.link) : ''}</div></div>
       <span class="tag">событие</span><span></span>`;
+    listEl.appendChild(row);
+  });
+  plan.forEach(item=>{
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.innerHTML = `<div class="check ${item.done?'done':''}" onclick="togglePlanDone('${item.id}', event); showDayPanel(selectedDay);"></div>
+      <div class="item-main ${item.done?'done':''}"><div class="item-title">${escapeHtml(item.title)}</div>
+        <div class="item-meta">${escapeHtml([item.time, item.summary].filter(Boolean).join(' · ') || (item.kind === 'todo' ? 'дело' : 'дедлайн'))}</div></div>
+      <button class="tag plan-cal-tag" onclick="openPlanItem('${item.id}')">план →</button><span></span>`;
     listEl.appendChild(row);
   });
 }
@@ -3441,19 +3460,35 @@ async function unlockPersonal(input){
   let raw;
   try{ raw = b64uToBytes(clean); }catch(e){ raw = null; }
   if(!raw || raw.length !== 16) return {ok:false, why:'Ключ не подошёл. Проверь, что скопирован целиком.'};
-  try{
-    const key = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
-    const plain = await crypto.subtle.decrypt(
-      {name:'AES-GCM', iv: b64uToBytes(PERSONAL_BLOB.iv)}, key, b64uToBytes(PERSONAL_BLOB.ct));
-    const personal = JSON.parse(new TextDecoder().decode(plain));
+  let key;
+  try{ key = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']); }
+  catch(e){ return {ok:false, why:'Ключ не подошёл. Проверь, что скопирован целиком.'}; }
+
+  // один ключ — к расписанию, другой — к плану; пробуем оба замка
+  const personal = await openBlob(key, PERSONAL_BLOB);
+  const plan = await openBlob(key, PLAN_BLOB);
+  if(!personal && !plan) return {ok:false, why:'Ключ не подошёл. Проверь, что скопирован целиком.'};
+
+  let added = 0, schedule = false;
+  if(personal && !hasSchedule()){
     DATA.schedule = personal.schedule;
-    const added = addOfficialSummatives(personal.summatives);
-    await saveData();
-    renderAll();
-    updateSubjectsDatalist();
-    return {ok:true, added};
+    added = addOfficialSummatives(personal.summatives);
+    schedule = true;
+  }
+  if(plan) mergePlan(plan);
+  await saveData();
+  renderAll();
+  updateSubjectsDatalist();
+  return {ok:true, added, schedule, plan: !!plan, already: !!personal && !schedule && !plan};
+}
+
+async function openBlob(key, blob){
+  try{
+    const plain = await crypto.subtle.decrypt(
+      {name:'AES-GCM', iv: b64uToBytes(blob.iv)}, key, b64uToBytes(blob.ct));
+    return JSON.parse(new TextDecoder().decode(plain));
   }catch(e){
-    return {ok:false, why:'Ключ не подошёл. Проверь, что скопирован целиком.'};
+    return null;
   }
 }
 
@@ -3463,17 +3498,21 @@ async function unlockFromLink(){
   const m = /[#&]key=([A-Za-z0-9_-]+)/.exec(location.hash);
   if(!m) return;
   history.replaceState(null, '', location.pathname + location.search);
-  if(hasSchedule()){ openPrivacy('Расписание уже подключено на этом устройстве.'); return; }
   const res = await unlockPersonal(m[1]);
-  openPrivacy(res.ok ? personalOkText(res.added) : res.why, !res.ok);
+  if(res.ok && res.plan){ closeModal(); goToView('plan'); return; }
+  openPrivacy(res.ok ? personalOkText(res) : res.why, !res.ok);
 }
 
 // приложение уже открыто, а в адресе поменялась только часть после #
 window.addEventListener('hashchange', ()=>{ if(DATA_READY) unlockFromLink(); });
 
-function personalOkText(added){
-  return 'Готово: расписание подключено' +
-    (added ? `, добавлено СОР из школьного расписания: ${added}.` : '.');
+function personalOkText(res){
+  if(res.already) return 'Расписание уже подключено на этом устройстве.';
+  const parts = [];
+  if(res.schedule) parts.push('расписание подключено' +
+    (res.added ? ` (добавлено СОР из школьного расписания: ${res.added})` : ''));
+  if(res.plan) parts.push('план открыт — он в разделе «Мой план»');
+  return 'Готово: ' + parts.join(', ') + '.';
 }
 
 function forgetSchedule(){
@@ -3645,10 +3684,22 @@ function openPrivacy(message, isError, mode){
     ? `<p class="privacy-status on">Подключено на этом устройстве.</p>
        <div class="privacy-actions"><button class="btn-ghost" onclick="forgetSchedule()">Убрать с этого устройства</button></div>`
     : `<p class="privacy-status">На этом устройстве не подключено. В коде сайта оно лежит
-         зашифрованным — без ключа его никто не прочитает.</p>
-       <div class="field"><label for="personal-key">Ключ</label>
-         <input id="personal-key" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="22 символа"></div>
-       <div class="privacy-actions"><button class="btn-primary" onclick="submitPersonalKey()">Подключить</button></div>`;
+         зашифрованным — без ключа его никто не прочитает.</p>`;
+
+  const planBlock = hasPlan()
+    ? `<p class="privacy-status on">Открыт на этом устройстве — раздел «Мой план».</p>
+       <div class="privacy-actions"><button class="btn-ghost" onclick="forgetPlan()">Убрать с этого устройства</button></div>`
+    : `<p class="privacy-status">Дедлайны, дела и идеи. В коде сайта лежат зашифрованными,
+         раздел появится только после ключа.</p>`;
+
+  const keyBlock = (hasSchedule() && hasPlan()) ? '' : `
+    <section class="privacy-section">
+      <h4>Ввести ключ</h4>
+      <p class="import-note">У расписания и у плана свои ключи. Вставь любой — подключится то, к чему он подходит.</p>
+      <div class="field"><label for="personal-key">Ключ</label>
+        <input id="personal-key" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="22 символа"></div>
+      <div class="privacy-actions"><button class="btn-primary" onclick="submitPersonalKey()">Подключить</button></div>
+    </section>`;
 
   let lockBlock;
   if(lockOn && mode !== 'change'){
@@ -3679,6 +3730,11 @@ function openPrivacy(message, isError, mode){
       ${scheduleBlock}
     </section>
     <section class="privacy-section">
+      <h4>Мой план</h4>
+      ${planBlock}
+    </section>
+    ${keyBlock}
+    <section class="privacy-section">
       <h4>Пароль на вход</h4>
       ${lockBlock}
     </section>
@@ -3690,8 +3746,515 @@ async function submitPersonalKey(){
   const input = document.getElementById('personal-key');
   showPrivacyMsg('Проверяю ключ…');
   const res = await unlockPersonal(input ? input.value : '');
-  if(res.ok) openPrivacy(personalOkText(res.added));
+  if(res.ok) openPrivacy(personalOkText(res));
   else showPrivacyMsg(res.why, true);
+}
+
+/* ============ МОЙ ПЛАН ============ */
+/* Дедлайны, заявки, дела и идеи. Как и расписание, в коде лежат только
+   зашифрованными (PLAN_BLOB) — открываются своим ключом и дальше живут в
+   DATA.plan этого браузера. Галочки, свои дела и идеи хранятся там же.
+   Если в коде появится новая версия плана, тот же ключ её подтянет:
+   новое добавится, отмеченное останется отмеченным. */
+
+const PLAN_BLOB = {
+  iv: 'anqFY3sh8PA5M7Nf',
+  ct: 'jsf2Deoiw6hRVJCahrUifj-pxbrrWDVluMBbjZQht8hhC2n-' +
+      's65LeOTDAhCvR5qQMk9qF9QDQgq_1rhUoMXv6YbpOjm7yytVy5ekQzrcjNclLdoHBfMXZVLaXYTwRP-RzP7Y--' +
+      'Aqjakh3vAm5rsAH34feTZWNlwF-mm92QC2vsrPoti6ok19QYjTAo1bBzt9Z4ZW9VslTFPGP5-' +
+      'DVzmBokQYEgCpc8tnyq4plpkCo9g63vRPQeSNJ2rRSFEFYMeGH5dOn78JR2N3BA4fZMI5j2ain3_RfTzjyzN0fhjueJRJQ7W' +
+      'pHh3HSOLLc2ZxEyMdpKUHlIDCZOdG-vj_45ec4TQxb_0HLF1JgfIFRqXFuuuBYvwxlfFh_T_kX5Vkyaz8jpjYUkct_rezCp6' +
+      'RRt0e9ZAPsodtgtplOezrAkAqgoCoFd5JhYtLJZh7gzStXZezH-bh7DragN7TbPe4XIeyO7oXpv0v6PFkbbQ6iRfSuTwvClz' +
+      'IWqjwVRq9PTkEVU3FrN_ek4glW2K4xWuP0gD0JmjYvZLj5ESvw9xLtWIubrAQqbO2ilKqtIL89-' +
+      'NqHiBw8hyJUQN5ETy7fR2yv544_bD0XOBz6w1evH2pHOR4YnGPdPSUmDTb9v1Jis5-bniNDvsCl4xsiI8-' +
+      'UXwDrggEESAB8_0JjyVgI-q-' +
+      'vWwholffg9ztJkLOfF0cbSDlsNd25NmKxgYleyaR_l_8Xxk_7zGQHAJJD6B48rEz7uwzr8DYpvNzM3G2S8XBIj6OYL-yFWc3' +
+      'hZhVt02ul3TzlR6H9WRUmCC6a5bsy9j2coG4w8WXBot7UN6T3fOVyadKb1-' +
+      'ClVtfLBTvWEmSYB10LSATx0Y4bHR_ejGoWAdvopOiHJsLeD9n1ePcAXLBlo3rjqPn3Id4vTEDptw4wQ7E150PdJxFv9Bh2SQ' +
+      'kXYsa5jZlv1B7rggTNdHlZxrKxRGe563M9ZOP1-' +
+      'zdbkDxbLBq7R8DUFsJwEYMzCIqZZdA387KOgfpmF5Jj6w9sMMbefxgJyQ3bryf6IyqJRgd55yM69LHrNOQeteEDs4PW87xPP' +
+      'xBKayJIJpCqJQ-oOkSxWFNruWgaWJQSJQdZ4V8BhhDtDaYCelpKt1MZo9Myef_E2Y3pNiFvLvpbARmx3dEwsMZJ7ETSjC26d' +
+      'lScO_h0GoTAmaUmK8x6DryTrdFZymIsi001VxVDUOr2FoSA4vmi5yw_aQ2rYTHYWqoZs0Oho3XXlD563ktPSzcXLzw86rrL_' +
+      'nAHfV6SUPEGG6lzOMdIdmSUKdeY7VFyuRovhPtTmpd8A6LXVduFI4wBPc-d3MODYt9-ox8-RCATU-wdmY1oeCYG96wiAVS-' +
+      'd8HFNHv1dPCNssANml3IV91AOrGMTGiaV7DHOmutIB568KjZWM_6N006rrlYNvKjlF8MS37nkX4CA4WLNBp93PlXnDYIjmK_' +
+      'nAkFV0DNCRv3IrxDZmmE1kB5Fx04sB-P4xVnoQZsBJnj3iFT30Q-MYCuZ9qlqypXtD3Non3GjkMuW6-ZjmI-' +
+      'mHLCV8XyfioNM-OD3z7u8nJoZLok2E-' +
+      'GGS9taC8U38kKUI4PJ79dNy6sgDa8I4cXkqaH4LQ0nq0PKQmha1Ab_8dEG3ZS7CMeHNziznS1sDWad7gvs7_qjjb1csiwMBi' +
+      'BMBKqN4gze_L7U2pKDbUBwfYmuT1OiLECjN0Pxtk8wErCkwDQAVNZG-' +
+      '2OlxDPxYj7LAjaI1DbRjotJIoUwnm6gdONiA1JxhQyn1DxrltIKouIqtE5o9ycI716er1JOImZ-' +
+      'U8IlRiEIj6FjtyFyDCAT2S-Iqxo3_JvVfVNNDIvOcEOQ9UqeNLwmqg54gJe-' +
+      'm7lHXfT9vp_MPFHbaXEnunUM6bqFSpdBfqUSUiEFo4dZE61IsoKfAoKVsNkXDKnU-DqxV3AWCWGWg03Oqo7HaBgf8rmAfp6V' +
+      'mQIb6XvxuihGIL3OdiLxigYiyX_pe3svjBUPfaEvWmujyyOnrMzXw_brphnqchRbKdHyV9D1knJnxjLkyktS5eit2538Bbi3' +
+      '72kHQV6xToKsW93ZKodSkOQKJLlsxBW7SBeWM4g16dY_aWHc_hh7EOXCE2byAPXnXJ61jlklicHRotHJh9AGLSXL7jqwuI_R' +
+      'Clvo5wn6JrbcPZgC_yWsRS_waXpHE_6Hfk1uUTqG1BfydYAffiCIVktx8Er9dDy97DlNRFUvg5Vur-' +
+      'CBv_QsNCYmvSJV58nuoBFWAqH1CUqe9yx3rpsEQhcwXuyKxZHv2LcDzkGLTjl-P16j_uo5hKxrRlkX3RX6G_DL-' +
+      'xyJfU6GwLzhI9B_f09053FuI45fkWwHuw7TM7wnpP_yuncaCOHLHoDjihPDvc8LwptXFVZvaCoWDPiD1I0hqy3GcJ-' +
+      'fP1Gq2GRX7TwHJJ2pRB3sJYavZHhlCfm7TFUykLqjP05J2fowe_aV3CH0c26kn-k-' +
+      'f1uP4iXUaZsWP9sC5r2NluvLYJS0SVp_xHaytZSfvHKSyZDvobjNWokocU0_N4_hX5w3MG94nIplVpKe8GVQK1IqBcJqBMq4' +
+      'Li0VJVBQXgYeIMTCFWKFdcSsaJLxiTEOxaG0AE7zbs7J1G_q17LA-hwgeIATXfLZjnWrb2R0dL9-' +
+      'j71baT06EcPC0F99BlOGzOBPRc6FHk03d2FPjkPf0J1MxwlgcMy1RL3tQlvqoBQ7NfZWTBq4RGhQjLoeJ9zEudWmieu1i359' +
+      'Bsc2wXQDznF1fcer9tVdA8gGGCPPQoCvSc3EHTwhFRgBN8QQl9c2vMPLe99X_GXbVU0gPYmSC2PTr1WafF0sei7APbUMjohC' +
+      'HsA06ieYL1BslwXRtEUHJEjvKtVPVzcRD-WzBD6KbMRZB9EuI7y_m6Wtk0K1qouStOmqRfdNpiUUtyf2Ak9q1KfJUHast5IE' +
+      'aiMe0S5K6R0smeQIevw3WfLmR8J0UO4nAK6IL47lCJ0Akdg93ifCbJvOeIrtT7sGrK8a6AmcufxXZQyP6jO4L73lDZOOSpAp' +
+      'Eer5d1tep1w0cwDLmiBYhOwdYmlMy4HE7JqpBrIp79A2DzybvkHQ3ILObkfrwSN6MLadDg1yft02RsXcPb8FUKgW4MEJTy2K' +
+      'hXzf8KPShI5Imnl2oVR40gKPuJ5uk9gsNEEJtWGqVb_Go2gdRP1B4pQOJF_FGmR-IDFwzHPZFwYgXPuBXAZ6ByBmMWGlCegC' +
+      'I7LRbl2HGsNm3uA0ooiBr91ItV3wmX5kDUub9Fh4BFWU1UeGiLsnzdrMVBHVOLT3SPKDJJxAOYal-' +
+      'Z5w0PmOv7_W5E4XWa8lEe_t1FLICmpTSlPhcgktYsAXBkiHaKcR9GhdU1udGkloiYh7amOa4aOQqDtnR7X1qMiz3L3snx8Tc' +
+      'Xq6J1wtQam0tH0EP8KSXMzFIrSoB2hxKJh68BElzX_rQ_3M-' +
+      '60QcwDhN0UGvIy51O97GcCx5tzbETwfPwkauhz5nbxlhGvqCqQvFVH26v79FGNIN17wgumq65B3KfI7kqPHevX-DemUVH0by' +
+      'HK8yMrmzeMaMS0AN_9H5cgUIoxnCCi7-NarsY4O208sE3f4-' +
+      'GXlK6fQq2P_noLa8DyAz7mVWSpQPbabdsdjKoDejH_e6QE6XeklsJw--lh4BmSo--' +
+      'yZoWGF4daX8XDHqB6rxKXBMzbgCJ1L0x_DTX3j3NUWorzq4d9FEZEUTxOBgCY3AhLFLD0uVjznO9nbdl-KyqZ2gYqEV1al15' +
+      'x71mgRL3oA4WwFHtd0s_ROGHX4VgejL_EJPrgZ09xCCFZ_YM5QhDUvsthc8-' +
+      '0qvF3OkP2L2GEiMn7zIr0R6mr91gCYEJmGD4xCuT1yg09rPPTxgAz_Ht0owEhw05tEcUKpz8tNA4_IRkvlywvu47D3cGiqKz' +
+      'eo2JFlrzBiBxVRWXZHXjU_Fcp0sDnbRwEawhbnfj8b6fyUerX-IWbcYcWCO64GWxf7AIt2frZgxVl05wgk2GDMxqi-ZUuVC5' +
+      'qyZ7rVdseI5NTgYImLldQlJgoYl4yWdIXz-7mL_Y4RKNXuxMHT48AZPmASe7fXIAbtqjgKI8L_pcFj2ZmY2KHKYVzrz-' +
+      'wcwwwkq3XG-SdcrTS9Azy2CHWF1sLkTGhbdHecOf-' +
+      'K3YrFLv4WGLX19JuNhTx27Tt68cxzAhN0j8on7b_6tAlezXbqp8vifkq56mdb_cow_zkza9e3Ib5NSVddDdZ2zEbmxQ8XTop' +
+      'E4PugYm74CAdv6ysrqaLAOThfuFD80ldVX2jz_dSxLq5l5twaRYfgANDWtztgTLEPDCYXe-' +
+      'nLb5fBM6Pc6pvQMzpD6iTIjGKpNdQhxJd3YGol995tfG3sv-hUdUb0ILwEEESTcHIDmzXIRlqU3AfzbK4jtWPtaweAOPWqs8' +
+      'pfqlsHIK5IkotQzUKI_n32EZAwJzUElktL0fwDQZjm53wuLIGvECeEgWai7HEX8vQmAoEAl0pC-C4FdYMByfAL-' +
+      'hHfxsmyX8Q7C2AurqKHy8pT9bX5oJryKp95SxpftIxJnev3wtpc7Unh3seXM1QpsqE7iq4oLU-qEZqcF0W_eJ0bN7Iihj-' +
+      'efjcZW7GS-_d1F--unNXUpbUeBARcY5qDQLDU-DGTQxglfEsB1q3BgYdS6TRObhIws9RJDhE2HXWXfRSsU79a2SEPG6pcLMQ' +
+      'TFfqPe-' +
+      't8yJQXMVWHi8R4mA1s4Qs5JaF7a08lhO9LpglQNKT8lUFnostatnO2x5iPqipZZBt0zqoKp4zByDyiy14d_KJZL2TEd8wtQg' +
+      'aNIGqcs4Uwq6V2fz4BciTxDvECADnasl5vFHkFmznhoex9ISUB9tm5eRrmGWTp88iB6ApL4v_8UsXo-' +
+      'E0W3N9d0aJJ5ZUoWv2DTZL2rplozXoPHN1FZf7MEZfKJ7jg5-6JJX90InRgSYmW-' +
+      'a16_fZENTIhhsfPG20URFrvah1n06ezCvtpiL8_bHVjFkS4UJzmik8O8c3I2UEaNaDlq4G7jAyd9NkTNErv85c8FwBEFQ8u5' +
+      'krENysqpgiFxO6cTgGP7YcGKe6cV-iuv56oC1ybFPXDlCjSMb3qGQCfc1gmxDGZDRHAysPW_wFnxcOimsCO2Q6NntK1IMQEe' +
+      'fYkre3GBqdQ7yWv8oa8qna9FznV6gU8qmT_p18525CkC8NNErl6zN4s9lcVakE8hamQmcKGwkk1r9JJe4jeoRLpbAZal9Md0' +
+      'UySqrFewlUdfiahL0919ey8HKONeqvslnboWbGhvRTOLTrt3miuztxtkeFI6jR23MSS7e0VfWaZ306eV1Qf2o6hRIvmOtw4T' +
+      'FI7Ysyy9IAT5LQ_PPE_PIBIz7f15ImZN4NG0udnIYYVKc0VE6BTmjeglap_f2SX-' +
+      'a8m502Mm7SxTGP586po8IO5HVz0OVHWEgqkojRF_dlzr69tJ8yr1B4KjkhP6lHZ_Y0WjvGAzueefCcZ-' +
+      'h17WW7e8B4ed8cj6qQtkQSCUpB1G4RsYjSRWHTQ1YTmFPqD8VUFf_pgOvqLdYRIsE-' +
+      '9QL1nXkcTBYlPnP3T3OQVjEdxXkSQevzUWt5js_lssbdtBGqT8FYUkXuhiGm9_BU8J0dKGjYOTnaZ8M4y3pi3yhswHPnMySG' +
+      'PLcaqfYMQ3lJechhnADJAWW_7qNFIdmb-' +
+      '15OSm1UYysv755Xeb3wTBYeEYX49wgElmUl6Ya7Wdy5FBprUx0pvPu63zOKHg3AuPFt1Er-' +
+      'c8qais8aW7nO4ItFZl5CKtGKl_Ny0d3whYIDdeOTJ3ponRL9UIU8zXwPDsJiFwS8OoK4ez5i_3KG3yv2bQ5elpKup13Kj0Wk' +
+      '7k-Xp8CldDRMVblEvsUpZLiKUcfaObLMYayZbHJ73U_08jOtwn4rM9HOXxAS0BWTeD2ZXXm3wRtqgA-' +
+      '7xvbePnninLALHL_9n9S_maI-9_CLRCqCo5Q3mDZpq1QGt5vH-Hs_fL_h6C1_5Ln_LkeHKbEHzfHq4MalUnjg60m4LPp3Kp6' +
+      '0diX5d_lQKNVEjAiY4_T4wfvyiUHxDp2bS4essOaB0AgIr03eLewkXQ8hCtCdHMiZdXikzs5By9Hsr1LmK8bJQNKdURocjw4' +
+      '8I8kpFwAfxIz65TOIXDYupKIswA315d4I-tPk7xcXuYFS8LZ9rFfiE_0v58MQu59hm-' +
+      'RxbxmDerwJYZ7OsI5MnRbkLjAE4ijEOgPedddCsuF54B35kl0xYlOLY4ETkgtZ3ECRvWaPf-DuXA2cuQghDnTwEV7udbFWBb' +
+      'pl3c0r_oLGADTtQ9XPGAVZHdtmAhTGgEJf9FmQinMPcHhr3z3KbwUqBB4rW8uUOlMkBMStZ86IrbG2XbXj9lyhyh1KXUe57G' +
+      'FQGRi6KNMag0JssFs2C1uusu7WcY4Z2rkjRFWFrowFVcm4k_hJ7ltP1Pc7ydf3sAz5IS4W4Qpuqh6zdElIPCg1Ymt0ghPF7D' +
+      '_-07RSIeJ9eYQrcLnpi0Qhdh-' +
+      '3NCYqNNFrlgQiG9ie1FXI4_FqwzXLKzRW8F9lGNZGUvkEkcn3SXZtyZWCUFLOAXGWxJXG7MJtceG8xM6QRN7o9dzgZBh0l_o' +
+      '19wm04K_-' +
+      'ZO6XyCo0LmLHTUjMyiXMxxLw40loJc9Qqd9gc7Pxqr5ZPOnHwOQwPpTWTl6JtC2HniqIqzcf3FpQ1WlnNsMqsJErHx-mvrZS' +
+      'Qw7I4pb6D0C3GMmbIIgYBcooF5l_NpiqofIa4UbNyW-4JhIMmziHxkc4JzKqsl8hrp6D1pVpyrQyF7-' +
+      'bVVvhMf1lnrZsuzx0sDeoC2lpdsAzlDc-' +
+      'fqSrCcRSLoq88iym1-S_AP0XnnC_msaKHY0GlDWh930Ru4kEjFaAbESUL7l7fOdsLhtMKyjwKAWpzQIKZQL-HTCa9EyDT70U' +
+      '8TiYnjPW6_ImfYYomtmCMd9UvHbEf0URfOy2ToG5K5mdFzcGJOTXoXRGZNJuigBjsx2upCsFEEiiz3H-' +
+      'xU6UppHLv64cKYhci3FilvlBTsMgHJcTx7WYUFiE2PFG8HamDX0FIHrfRFvs_0EehNtJsRbsppOONh_Cd4byA9IK5gJbIaZ1' +
+      'uoPad4YBWbRDp9i_fDv5ubMHTWdz80PNms7Qe6t5ty5eQdGB4xJ-AJJBI4mCiUDwOcX9OL1BUKAEjhVgEXEf0GEaZdr4A8EI' +
+      'l__eFe9bbTCusljXQnUaZapAJ9Cd820Y3m97FrRWLTduswzYX3hdtIiyKi042RtOEQa4xGycqDRJm4MvyGoU3UpCS3f96jnB' +
+      'NSllrcTTbGfQTQZcCvql5s_UEK4aX9ZIIyAqI1q6nk7gWQQGBuKK0BpfFCmKVgS51v22T3N0VbyqKyjLY03cBa3Vu9SOJCeJ' +
+      'Jv-PrsnPYfpW-' +
+      'l7bddddou8bU2NEJtam9gOgEFRPw8DRBqUCMvYaY4SmvutLTIiiRW9ZfTtqdVa310QSNRKBBEONbSPVNURg1t-' +
+      'NDGdOaVJC_nHWuocpBrRsAWt7GQjh8f3jyMTukOqtpJ5buTvGDv83GU5VHr7aJEtJ2F_Xp9SjCY5WdtjqG9Pf_N5QYsFNsp6' +
+      'K12u2clKnn6Y-' +
+      '6n7SyELUlraTOjPdXRZTq8cm1r1uABKl216Q1GaNOcs0GDGrkDbd_muVXwMolTPebgVfIq30ql6rKbP1NOL7hy_t_N_d_UyQ' +
+      'UbAcRS1X_IyG4MPTacJb-YJqDtW7nvi-uW17q5zDQNmILJjR6b0-' +
+      'oWoSl9NhahpbdkUkbF2A2NGMymNMSxGfs7yfk9FoIx2nU1ZpwVRYMoRHEqgZ05nGMh7V-nBpNtGPPhy-3ejNEOyzbuHKV-SO' +
+      'xBZMdCdl8vtI9H_twhS2i60-7LcFLo30TisBVp7BmjQ0aCHvBy91eWx3sw_qs6aWiLmXTDma5-' +
+      'vZ3zOg0dbizkSE9WAPtbLkL0-' +
+      'dJG2zSk2KtQE3HBdUTFgQPJvEiGyHa4rWy4W63W0IkSVZRDquJe5dqqK1LjT_HrHjycVC1p-' +
+      'iGgnbWHnrpB3Uv_WTvwnO7TRTDsh3Ax9YNePZNrw66s5B7D36kQLcnQkDtDA4xNOMHELozYFy9R7lE2PJ3zybOFnHVjEvn0m' +
+      'P6DBaueqKLx2Hs0wQEYjCTm5Lqg1-xLdjgeBrVjeTDlrXmhWMpykuzTUbwvNsBWwJTpXH_NoLwSDPe01hM-' +
+      'jsiCqsZLozTAZivhGp8JvuOlUE_rZk5MbaKUfTm-lce74sWIVo89WIC28Wf3m-biBk8wFUtQsEbbTT-KT-KrLrVXije4fUOi' +
+      'F9p5h-aZyPAwimLUspO8Pu0bTKtgQbW8FWcyZgWU1LKA5aFhf8kNQgc31I_Yv1BKmjmG9tfygo_YXo4U3hOf33Ms-' +
+      'nnJ1kahyZu3PLfSFEN3HWffa_fv4irvXcc8uooq-z-BQv7JXd171_CKlmUkKJ0Ok7IFBHAwK4tK9SbBUxXz6MtKFuMxOu8Q5' +
+      'ZR9ZfDQWwgoF6grIVDJsVytXlNDzoUyaJFxyVwzxZwRTb0xz4Cqtyz8D0nxwl0bv4Ssfm-' +
+      'DG4OekKo_dp-1JjtEfOLFbnowG2pc-AbFSjponzm6AG4Vlqh_CQf4OxWqVFlU0FU3UVy9TG9GARRiL2DPbNSN9xpKg28WcsE' +
+      'GIOmgRormysGDTD78sNRQTybjJ1TanCTNIlxtDEtO1dhmVxJaS-Cbdp5rX4qleCbpuHFq7_TNMHJUiokPqFbQteNn7d3AOLS' +
+      'pYa1T-' +
+      'wQ4QLX1kTlybAQuwW7eOqu9OfOkDFpVhPN9B4X_1Q_qyNwUexOGgXo7Tbh4bItlD0QYJKnIPpVx2tL8rm_RDLoGNOrY1-' +
+      'c9oicrQadOf0feFydDfA-RCMm6Aze9bg85k1hDkovvhi8PGPdNO1oXKr6XxupUJ-GseD_JA7L6yUP-Qsv6JVHJnXB5r2XyPS' +
+      'QXIchzAXGcvFRWZys2a0aKQ88xwdQhTmXhuU16dIfzkdKjPySxfmG1ohtlnfwxOo6rLGlyIESki3SVGpZ-' +
+      'MLBo5UXfqqqviofzQ9k6JxYX0bFmn5g380IbL-KGzNY8IyehDQfWV-_h4HNVG-OFHJrBCF09iMkY1SpAyuszUBIEyIY3ekuk' +
+      'K9nTywPx9_kZx8HZ3GQ9zEt0D0Gt_2Vs_jXBZJuDQY8ob3VxNw0LfjbCBZ5W16GfyQlE0-' +
+      'csafB2dxi8dr7tgRtv7BLj_XXoFjvv1-TK5oYDz6uLZ9-oGsVbShQL_Eqw54wsz3nUxhl-' +
+      '0xh7zvKoRhFgopnUe2V99rblbNSjXl5JvhEdnOOObdf5EkaK7mpD5ORS4eNk7G_1j9p3i5RXfVSLItzlwvJgCsdTYd_VV_3X' +
+      'JB5RJOy0QkzeUBdsSMy3N8zc1CxvxIJTg4A4UvZSV6lSaYd6OLJwKfoMDtROmxVwMbUyv5w5yxBjvN1rfjAXpT83yJLcwc5p' +
+      'T3LThtP4bd2bykxwgDVpXeV2oCV2_fjM0KHGLC552il08Mm8TdfYf2McUpdDmrP6Qnk2U20zA5-' +
+      'ltFdTM2kHHnlRVWJRDJ1JgZ9aZbEjxijjC3l8mtqFqANyabL2NaULkOlTAttwLwdRg_Ulc6ScKe16NktLEsxf8tjlqISD18L' +
+      '8uULawjpImk7tXvv1DWAqr3S1A-' +
+      'TQrCJRJGv6lDa2KO69EHa3PqOLb4ThWG1ATPHNLsvJuIkxm4AK0MaDx87O3yPsnFLBZvn0PXVG1s23nV0QxRHAd8D8-' +
+      'Na2pCrn2d1guCqhgH2MsnbPUYoZcaDEkjp-wPln-wBIrPWI9c1p6qRAD0cmnw-' +
+      'L1JQVeeVqahegYHD9drpFtqKGm133RjNuBUFBuwMisLyo_Bu1oQjqOzCZoHP33uvJN3tkkAold6YqBKaUZTr2iVi_YWi_iar' +
+      'yk9HVj_jPUXBMTcovrcmEGwejmwRPY8rpSx27CKXmXbLkNJTY8mf-' +
+      '6Soq4A0JPe_u33_ZjOlxOlJ9ZnwWtgj2qJrMJH1AkdPX4bB5Epe1qEuHvDDXW4RUFOjFWXQWUaiByv4GBI1tPEIP5Z-' +
+      'AcFkZ-' +
+      'U0orakW9HBEtdTSAMQukjQYl8iTITn8tilegSxOhptg77oR69J9eIkFAAZ6FACEU319oQ5B8lpSOaOiRHyCVJMJyHmn8Y7Pe' +
+      '8Y9UjhvjhXS7LLK75o4CH1M4Y_PL84KLDRsp8esPVdcGdh8Kogq8jYEiQV0_wJCPcdPDIRCnymIkzWmHgaxUPSfUUbcwXHFX' +
+      '72i0pasI6sJAz7utuIpPO6djDDgRP0eTxGQlP6ujHinp6JDCr0D1Kf8Dn2y_Np2rBZwpGcV8Z4omJqMMjObBDEmNjI5Bc1Sb' +
+      '1bkV0X7-tUO6VRFHpS3UTJVgdoS5H5IXW2KslkUxTu7D7kor9-' +
+      'N5VN3Gbcogw2TlPyr5Ah10CbcokVKC7Z6KQU9kNOHj8YPmn-OiUrMJ__iaTrJwRjPrBXrzZrBuDzN5wxQCdIz1eLkGKW7fDx' +
+      'upccpg5ycrgzlTzxE_2-w2oTcmUibdvD58kvUd5V7lv1wNmq3dz27N5f9ztplclMAM3-' +
+      'YKxoVJjlRugbbzz1wrtyKS6BNhi2lv_L6bj2b2KqM4Bw0u5t679ae7Nw6QO16fIZzXVc1Myynta0Pc1KP9m2Vqn94vd5vKtC' +
+      '5HNw5nhnpTg4rnjnye15HOSRYKI_uMJfNPWmuG83lQaWCQ2LZqagoWEDSqIUKh2lav24_-i2Q3_ahRNiPT4-' +
+      'b8muh4UO6HQ3PgS_VdllnOywW15B9kMPCZ1HMNWlzg7VE6bEl1uas18dorm56HrVmeiU83JRvI4gJg6iSBs2jPLGG7iIZjFQ' +
+      '8o2zPW1FEHYl9KjuIhkv90HStw7Dw1MDaU4IkWUTqJsYAdR1liapY4eGk2QEG70K54GA-iM3QWLdw28BZwr7iVjpbqluyJZJ' +
+      'yjAmKmy6oOLTdklFKiMFq1U3xDDss0GAhIFwVNw3x2t_lr3SKFlBR2Kd3BJSvC0wLTxiqlXaLakS9ItoJ8-' +
+      'f5j8s8mmn3Txjl1RVaS9nvm8mAjXqT8Zn1dN8CnEqpCPaV-GlmebJRn1v3gst69-' +
+      'MEC2aPLUkcEojJt0LbUuCj4BpIZD_HeE8spBfzQdzONIU9vMWSyRRDDrnoePMy2ZI6dAbgckPWup6l_wNMl89GbxAK63gRp5' +
+      'qH7y2MKj_WTce7UZuglIRfGM7mZekUVGYDrOWAWtOSnG-GH6-mA8P-' +
+      'CzT9uwY3s6RuszsvtxB6XuIJf0agWfek3HHA24ZCFVaWrVh7ALp3TB5aB6VwNIwht6-DJoDw5rU3-' +
+      'Ww6MmTVU_oLpNsX_f4sC0b8upvaHW595rStvZwmgeZC1oAVM5wlZ-pyaAJrhEhIkwxxNscQM8M1bsx3vAjbGmtbfmpI1WfF2' +
+      '4ErOsVPL2OrS9qiWQGafDC3ELUTtvzU9xvkVYuSpvDIIr3XBKFk0ZwcRJEZsLbBo2-ysTB07-' +
+      'Zkk9llYfuOh18nRbZgdTbsltCio1082p6AeYuRPCKGK9cLx9zP1zDF-Fn7sVUOIdOaupXAtf3toqWS74yz700-' +
+      'M1_QfwutsI8e0PGGCRHz21e3r3gpd986-0OoV4TwP95Aj8Z-' +
+      'Dt8am_ecfiyqxr5S5xPOAHBkrae0tSZLNXBtmI6b4GaqG7zb_pAaLlsvaUQmansMiYR-eZuNsMvSQHbC19t-5yRE4GuMor-k' +
+      'GCkH24Mu8xq5TMd3aX_AzZRo8lpidlms7VopgdWJ7jfSKPHa1Pad_0Bps6_9Gp6MWu42KpC8ETMpwkv5M-' +
+      'muhTEE0tfsO5J40WaBBSUSvxgrfHKHXs1dd6NSZxKiGsHtnnBF8kteTngdRDqNsSQLMIbJ0fzJi9KBfhz436QdDw4gviQDH3' +
+      'enEDkTaVlafnVmceHjyuNc3L2WAsxk_ac9BPkVbSbtdsDV9TLcAB0T-DmhDXgP4ljlQF-qWePg6YO5IXQ-' +
+      't2qXWa3I4ELdkcCBfRWpH2jF1ezbzVUR6h6IkBUPpmy3bBFmryqPpc1OdKUQZujEyzIgIAtkJleRmtXsbfymuO_dp5Acv1BO' +
+      '_ZmTHRyH_Ct_taX5E7ee2h7bXcBhk4yDiFD_j4Dlw6xuoA5NB-' +
+      '575u2eA5qBxNi_RCi8_hPJlqZbhai3pYxH1kUhxngTyQt6B3KhonXIR6EXJH-' +
+      'Qrq7Stu5X2c5sj-3mmcpyxirGYt1wSv4qkT9TEUPWBwMNbm5C6-GUCOsmhJezHCKlP_pGfk1gzpFexRlqSKUiRlJ6axf-ViB' +
+      'AeXDr1sDytPu2LP8EcaCykzMJmTAaLXRpe3cpZbVy8lmZKsdVbezBsYXhosARgW_vBZkCQTXnIHqj_DT6Y7rEV7xqrqRd-' +
+      'u9fMmZGt2ONhoIJ5JGeN4Lu1dF2T4wNobEwsGX9CeeTypKUhvC8lbBAM4gBbo2blnnoRoqMFKk-' +
+      'ordAm6ifnjt0Sq6MoQKXdlh1JK7IW8vrsI8M3nD-z2sOeRtTIRj5Ef869bBYGymXjU8G7kxW3KlkNd7RMXidCM1UK-' +
+      'Jmua6KbuPEw9HqWBsCqOpqxV_ClmdghILy1epIBchh6rzLiWA-rJhabzu7H3-L-HtGXiC4m2W74LrKcb0x1E0K-' +
+      'MQx636Jn1m8Dl_EVRFXhOYd9ccUk0rQXtVv22JdxG3jt0zuavdajapurfptiUiGNHq0prqPY-' +
+      '1CZRshEcChVENeKhLoPG1XyQn0EUNeCUGQuAxCQbgEf4m5j54doeOYgNLynNstjHbPhaQp4ij7d26vu2wWqofT3HNxPSJm7L' +
+      '__7f5_fzwbifuNytCAkoB4JfX9DUdq4DH_eQStp-' +
+      'cHKvnwIDhQMYk4P4kzih2Zd9NipFyxPQ9IdXM43AT1Khz_tSYAA3vunPxmAduuIx_CYQQd3gTQhqrh_s-ULB8qKG3GC1fGqK' +
+      'zQxHsu7pMw4DnFi9SU_NzF-' +
+      'M3GlG83LDh6eDshzRn4AuoM0RkZTvCP_CdbigNt2SX2fhN5qI7vfrMGV9866wH2ddyAwVsN34XVQ9Xx-Mc_1HE-wrvhQgp3Z' +
+      'qoWWHeMVyA-53tSqBCux__XmcPlD57QaVxfmEbe79e3_eP4ReyxDZ6tMUPb2zRw_KXeAHtYTAvBeuX8eXrF9-' +
+      'KN388syN81tvzM0Hm5z80STlMiXwDYiDPd_2Efbr2oywvg-wOpmJzFnBV2piD2MF5XGfGq-' +
+      'luZpH9p91MiqhnqPiClv0C7uAsb8dGSVOhXhMYM-2ZEjbVtSkmYnDEJPYpl7oIfYDilQyczbv1GR0Uv0we-' +
+      'DrmH6QaHpd0YoLypdZOn69altAQcCTJqoZ0B3wBQxBUlRXnfWkGZZfNcRPICLo3DNQ9k7IW5hIum2I0mQI-' +
+      'GiixB9JVs_W_u78TyxW6fT6alJTv9wwzCb6u3yrEn_vFm8zo_qqj_eAO86po1DwsVyU3UqRnnXO7oIgAVHm3KnIADn-' +
+      'NNY268-n08vpBpKflgmBVkobo-KAKeM-jGLszB1wmuyptnfMs-2YofdZQX0tTjzFUOy2K7l7yOQX-' +
+      'pzJ10J-41EBtT1-EjUP7XanjLo-acvzHRIs4qDtaVN0Of7UeEQntpAD407EbvsYr_gHKWd8dp0vVrAzmIUQns3PaVq1TKj9y' +
+      'RKkR4VjZRyII5RWPUhWQxbtETFinMmvn_jbISxXwZmr_7jb7sGCT_kWSCHsJOXHGFGDNYSwBtCaHz7O_zoByDIiaakEj5Py0' +
+      'Wkyk1niKzbhBotYADqA6fBo5_sj5VKlEK8wZ_vOasS06kWhGjJ-UHDHPnPd1f7O1N78mFQpFFvMMlEjEDtq4JK_HD7NR0p87' +
+      'PjqI7VbEOjMObxL9wifuq6No0_CXFW5m4Kzm5lR6p5Z5xvcZ_mqsdbqH0jwytlM-NOXsyTCw9kWXfgKKEIwdPWqdg0U__qv2' +
+      'XtNE1ktYYIw6ra7ZumEmSZp2IHez71-R1u2qLRXnmd7Hty4_VBoqjrd2oTnHTQ5Z17XSBij9hUUeVgsLr6BVnfU-vWHfSAZU' +
+      'UYas7oKlhGg2h_FV5TL8Ojw1X0tBi6RnQrV0maqheCv2QlCDWX7TGjCfwnth3BmkQOhTKsy-' +
+      '4_lEFko4neKyOP25pFPwP9864m23OE3ysZJ2MxSZulOQ056uFwtlg0LVnUwAHOEHYXNxobdUCeLRNnkWqwxAksdVGkLz7L9f' +
+      'cUfGDWycYtP9Ay67z3AuRTqvdZM8WLDv5zMD32419K_e_c79765hUGfW6hHakGSkt2ZZI6jGwtTwqnX0shUTexCaK6'
+};
+
+const PLAN_SOON_DAYS = 7;
+let planOpen = new Set();
+let planShowDone = false;
+
+function hasPlan(){
+  return !!(DATA.plan && Array.isArray(DATA.plan.items));
+}
+
+function planItems(kind){
+  return hasPlan() ? DATA.plan.items.filter(i => i.kind === kind) : [];
+}
+
+function planFind(id){
+  return hasPlan() ? DATA.plan.items.find(i => i.id === id) : null;
+}
+
+/* свежая версия из кода + то, что уже отмечено на устройстве */
+function mergePlan(incoming){
+  const old = hasPlan() ? DATA.plan.items : [];
+  const removed = new Set(hasPlan() ? (DATA.plan.removed || []) : []);
+  const byId = new Map(old.map(i => [i.id, i]));
+  const items = [];
+  (incoming.items || []).forEach(fresh=>{
+    if(removed.has(fresh.id)) return;
+    const prev = byId.get(fresh.id);
+    byId.delete(fresh.id);
+    if(!prev){ items.push(fresh); return; }
+    const steps = (fresh.steps || []).map(st=>{
+      const was = (prev.steps || []).find(x => x.text === st.text);
+      return was ? Object.assign({}, st, {done: !!was.done}) : st;
+    });
+    items.push(Object.assign({}, fresh, {done: !!prev.done, steps}));
+  });
+  byId.forEach(item => items.push(item));      // свои дела и идеи
+  DATA.plan = {v: incoming.v || 1, items, removed: [...removed]};
+}
+
+function forgetPlan(){
+  if(!confirm('Убрать план с этого устройства? Галочки и свои записи в плане пропадут. Сам план можно вернуть тем же ключом.')) return;
+  delete DATA.plan;
+  saveData();
+  renderAll();
+  openPrivacy('План убран с этого устройства.');
+}
+
+function planDays(item){
+  return item.date ? daysUntil(item.date) : null;
+}
+
+function planDueText(item){
+  if(!item.date) return '';
+  if(item.when) return item.when;
+  return dueLabel(item.date);
+}
+
+function planDueCls(item){
+  if(item.done || !item.date || item.when) return '';
+  const d = planDays(item);
+  if(d < 0) return ' overdue';
+  if(d <= 1) return ' due-today';
+  if(d <= 3) return ' due-soon';
+  return '';
+}
+
+function planDateBox(item){
+  if(!item.date) return '<span class="plan-date none" aria-hidden="true"></span>';
+  const dt = new Date(item.date);
+  const dow = dt.toLocaleDateString('ru-RU', {weekday:'short'});
+  const mon = MONTHS[dt.getMonth()].slice(0,3);
+  return `<span class="plan-date${planDueCls(item)}"><b>${item.when ? '≈' : dt.getDate()}</b><small>${escapeHtml(item.when ? 'конец' : dow)} · ${escapeHtml(mon)}</small></span>`;
+}
+
+function planSort(a, b){
+  if(!!a.date !== !!b.date) return a.date ? -1 : 1;
+  if(a.date && b.date && a.date !== b.date) return a.date.localeCompare(b.date);
+  return 0;
+}
+
+/* «горит»: не сделано и до срока три дня или меньше (просроченное тоже) */
+function planHot(){
+  if(!hasPlan()) return [];
+  return DATA.plan.items
+    .filter(i => !i.done && i.kind !== 'idea' && i.date && !i.when && planDays(i) <= 3)
+    .sort(planSort);
+}
+
+function togglePlanDone(id, evt){
+  if(evt) evt.stopPropagation();
+  const item = planFind(id);
+  if(!item) return;
+  item.done = !item.done;
+  if(item.done){ logActivity(); if(evt && evt.currentTarget) burstConfetti(evt.currentTarget); }
+  saveData();
+  renderAll();
+}
+
+function togglePlanStep(id, index){
+  const item = planFind(id);
+  if(!item || !item.steps || !item.steps[index]) return;
+  item.steps[index].done = !item.steps[index].done;
+  if(item.steps[index].done) logActivity();
+  saveData();
+  renderPlan();
+  renderCounts();
+}
+
+function togglePlanOpen(id){
+  if(planOpen.has(id)) planOpen.delete(id); else planOpen.add(id);
+  renderPlan();
+}
+
+function openPlanItem(id){
+  const item = planFind(id);
+  if(!item) return;
+  if(item.done) planShowDone = true;
+  planOpen.add(id);
+  goToView('plan');
+  renderPlan();
+  setTimeout(()=>{
+    const el = document.getElementById('plan-' + id);
+    if(el) el.scrollIntoView({block:'center', behavior:'smooth'});
+  }, 40);
+}
+
+function removePlanItem(id){
+  const item = planFind(id);
+  if(!item) return;
+  if(!confirm(`Убрать «${item.title}» из плана?`)) return;
+  DATA.plan.items = DATA.plan.items.filter(i => i.id !== id);
+  if(!String(id).startsWith('u-')){
+    DATA.plan.removed = [...new Set([...(DATA.plan.removed || []), id])];
+  }
+  planOpen.delete(id);
+  saveData();
+  renderAll();
+}
+
+function addPlanEntry(kind){
+  const input = document.getElementById('plan-add-' + kind);
+  const title = input ? input.value.trim() : '';
+  if(!title || !hasPlan()) return;
+  DATA.plan.items.push({id: 'u-' + uid(), kind, title});
+  input.value = '';
+  saveData();
+  renderPlan();
+  renderCounts();
+  const again = document.getElementById('plan-add-' + kind);
+  if(again) again.focus();
+}
+
+function planStepsHtml(item){
+  if(!item.steps || !item.steps.length) return '';
+  const done = item.steps.filter(s => s.done).length;
+  return `<div class="plan-block"><div class="plan-block-title">чек-лист · ${done} из ${item.steps.length}</div>
+    <div class="steps">` + item.steps.map((st, i)=>
+      `<button class="step${st.done ? ' done' : ''}" onclick="togglePlanStep('${item.id}', ${i})"><i></i><span>${escapeHtml(st.text)}</span></button>`
+    ).join('') + '</div></div>';
+}
+
+function planDetailHtml(item){
+  const parts = [];
+  if(item.warn) parts.push(`<div class="plan-warn" role="note">${escapeHtml(item.warn)}</div>`);
+  const facts = [];
+  if(item.date){
+    facts.push(['Срок', (item.when ? item.when : fmtDate(item.date) + ' ' + new Date(item.date).getFullYear()) +
+      (item.time ? ', ' + item.time : '') + (item.when ? '' : ' — ' + dueLabel(item.date))]);
+  }
+  (item.details || []).forEach(d => facts.push(d));
+  if(facts.length){
+    parts.push('<dl class="plan-facts">' + facts.map(([k, v]) =>
+      `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('') + '</dl>');
+  }
+  parts.push(planStepsHtml(item));
+  if(item.ref){
+    const ref = planFind(item.ref);
+    if(ref) parts.push(`<button class="plan-ref" onclick="openPlanItem('${ref.id}')">подробно: ${escapeHtml(ref.title)} →</button>`);
+  }
+  const links = (item.links || []).map(l=>{
+    const href = safeUrl(l.url);
+    return href ? `<a class="plan-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(l.label || 'открыть')} ↗</a>` : '';
+  }).join('');
+  parts.push(`<div class="plan-actions">${links}
+      <button class="plan-done-btn" onclick="togglePlanDone('${item.id}', event)">${item.done ? 'вернуть в работу' : 'готово'}</button>
+      <button class="plan-remove" onclick="removePlanItem('${item.id}')">убрать</button>
+    </div>`);
+  return `<div class="plan-detail" id="plan-detail-${item.id}">${parts.join('')}</div>`;
+}
+
+function planItemHtml(item){
+  const open = planOpen.has(item.id);
+  const steps = item.steps && item.steps.length
+    ? `<span class="plan-progress">${item.steps.filter(s=>s.done).length}/${item.steps.length}</span>` : '';
+  const tags = (item.tags || []).map(t =>
+    `<span class="plan-tag${/бесплатно/.test(t) ? ' free' : /платно/.test(t) && !/бес/.test(t) ? ' paid' : ''}">${escapeHtml(t)}</span>`).join('');
+  const due = item.date
+    ? `<span class="plan-due${planDueCls(item)}">${escapeHtml(planDueText(item))}${item.time && !item.done ? ' · ' + escapeHtml(item.time.split(' (')[0]) : ''}</span>` : '';
+  const meta = [item.summary ? `<span>${escapeHtml(item.summary)}</span>` : '', tags, item.warn ? '<span class="plan-tag warn">важно</span>' : '']
+    .filter(Boolean).join('');
+  return `<div class="plan-item${item.done ? ' done' : ''}${open ? ' open' : ''}" id="plan-${item.id}">
+    <div class="plan-row${item.kind === 'deadline' ? ' has-date' : ''}">
+      <button class="check ${item.done ? 'done' : ''}" onclick="togglePlanDone('${item.id}', event)"
+        aria-label="${item.done ? 'Снять отметку' : 'Отметить сделанным'}: ${escapeHtml(item.title)}" aria-pressed="${item.done}"></button>
+      ${item.kind === 'deadline' ? planDateBox(item) : ''}
+      <button class="plan-head" onclick="togglePlanOpen('${item.id}')" aria-expanded="${open}" aria-controls="plan-detail-${item.id}">
+        <span class="plan-title">${item.star ? '<span class="plan-star" aria-label="важное">★</span>' : ''}${escapeHtml(item.title)}</span>
+        ${meta ? `<span class="plan-meta">${meta}</span>` : ''}
+      </button>
+      <span class="plan-side">${steps}${due}<svg class="ui-icon plan-chev" viewBox="0 0 16 16" aria-hidden="true"><path d="m4.5 6 3.5 3.5L11.5 6"/></svg></span>
+    </div>
+    ${open ? planDetailHtml(item) : ''}
+  </div>`;
+}
+
+function planGroups(list){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const groups = [];
+  const push = (key, title, item) => {
+    let g = groups.find(x => x.key === key);
+    if(!g){ g = {key, title, items: []}; groups.push(g); }
+    g.items.push(item);
+  };
+  list.forEach(item=>{
+    const d = planDays(item);
+    if(d === null) push('nodate', 'Без даты', item);
+    else if(d < 0) push('late', 'Просрочено', item);
+    else if(d <= PLAN_SOON_DAYS && !item.when) push('soon', 'Горит — ближайшие 7 дней', item);
+    else {
+      const dt = new Date(item.date);
+      const label = MONTHS_NOM[dt.getMonth()] + (dt.getFullYear() !== today.getFullYear() ? ' ' + dt.getFullYear() : '');
+      push('m' + dt.getFullYear() + '-' + String(dt.getMonth()).padStart(2, '0'), label, item);
+    }
+  });
+  const order = k => k === 'late' ? 0 : k === 'soon' ? 1 : k === 'nodate' ? 3 : 2;
+  return groups.sort((a, b) => order(a.key) - order(b.key) || a.key.localeCompare(b.key));
+}
+
+function planAddHtml(kind, placeholder){
+  return `<form class="plan-add" onsubmit="event.preventDefault(); addPlanEntry('${kind}')">
+    <input id="plan-add-${kind}" type="text" placeholder="${placeholder}" aria-label="${placeholder}" autocomplete="off">
+    <button class="add-btn" type="submit">добавить</button>
+  </form>`;
+}
+
+function renderPlan(){
+  const tab = document.getElementById('tab-plan');
+  const on = hasPlan();
+  if(tab) tab.hidden = !on;
+  const wrap = document.getElementById('plan-body');
+  if(!wrap) return;
+  if(!on){
+    wrap.innerHTML = '';
+    const view = document.getElementById('view-plan');
+    if(view && view.classList.contains('active')) goToView('dashboard');
+    return;
+  }
+
+  const deadlines = planItems('deadline');
+  const todos = planItems('todo');
+  const ideas = planItems('idea');
+  const openD = deadlines.filter(i => !i.done).sort(planSort);
+  const doneD = deadlines.filter(i => i.done);
+  const openT = todos.filter(i => !i.done).sort(planSort);
+  const doneT = todos.filter(i => i.done);
+  const hot = planHot();
+
+  const hotHtml = hot.length
+    ? `<div class="plan-hot">
+        <div class="plan-hot-title">сейчас горит</div>
+        ${hot.map(i => `<button class="plan-hot-row" onclick="openPlanItem('${i.id}')">
+            <span class="plan-due${planDueCls(i)}">${escapeHtml(dueLabel(i.date))}${i.time ? ' · ' + escapeHtml(i.time.split(' (')[0]) : ''}</span>
+            <b>${escapeHtml(i.title)}<em>${i.kind === 'todo' ? 'дело' : 'дедлайн'}</em></b>
+            ${i.steps && i.steps.length ? `<small>${i.steps.filter(s=>s.done).length}/${i.steps.length} шагов</small>` : ''}
+          </button>`).join('')}
+      </div>` : '';
+
+  const stats = `<div class="plan-stats">
+      <span><b>${openD.length}</b> ${plural(openD.length, 'дедлайн', 'дедлайна', 'дедлайнов')} впереди</span>
+      <span><b>${openT.length}</b> ${plural(openT.length, 'дело', 'дела', 'дел')}</span>
+      <span><b>${ideas.length}</b> ${plural(ideas.length, 'идея', 'идеи', 'идей')}</span>
+    </div>`;
+
+  const deadlineHtml = planGroups(openD).map(g =>
+    `<div class="plan-group plan-group-${g.key === 'late' || g.key === 'soon' ? g.key : 'month'}">
+      <div class="plan-group-title">${escapeHtml(g.title)}<span>${g.items.length}</span></div>
+      <div class="plan-list">${g.items.map(planItemHtml).join('')}</div>
+    </div>`).join('') || '<div class="empty-note">Все дедлайны закрыты.</div>';
+
+  const doneCount = doneD.length + doneT.length;
+  const doneHtml = doneCount
+    ? `<button class="plan-done-toggle" onclick="planShowDone=!planShowDone; renderPlan()" aria-expanded="${planShowDone}">
+         ${planShowDone ? 'скрыть' : 'показать'} сделанное · ${doneCount}</button>
+       ${planShowDone ? `<div class="plan-list">${[...doneD, ...doneT].map(planItemHtml).join('')}</div>` : ''}`
+    : '';
+
+  wrap.innerHTML = `
+    ${stats}
+    ${hotHtml}
+    <section class="plan-section" aria-labelledby="plan-h-deadlines">
+      <h3 id="plan-h-deadlines">Дедлайны и заявки</h3>
+      <p class="plan-hint">Нажми на строку — откроется всё подробно: что нужно, ссылки, чек-лист. ★ — самое важное.</p>
+      ${deadlineHtml}
+    </section>
+    <section class="plan-section" aria-labelledby="plan-h-todo">
+      <h3 id="plan-h-todo">Надо сделать</h3>
+      <div class="plan-list">${openT.map(planItemHtml).join('') || '<div class="empty-note">Все дела сделаны.</div>'}</div>
+      ${planAddHtml('todo', 'Добавить дело…')}
+    </section>
+    <section class="plan-section" aria-labelledby="plan-h-ideas">
+      <h3 id="plan-h-ideas">Идеи</h3>
+      <div class="plan-ideas">${ideas.map(i => `<div class="plan-idea">
+          <span>${escapeHtml(i.title)}</span>
+          <button class="icon-btn del" aria-label="Убрать идею: ${escapeHtml(i.title)}" onclick="removePlanItem('${i.id}')"><svg class="ui-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+        </div>`).join('') || '<div class="empty-note">Идей пока нет.</div>'}</div>
+      ${planAddHtml('idea', 'Записать идею…')}
+    </section>
+    <section class="plan-section">${doneHtml}</section>`;
 }
 
 /* ============ INIT ============ */
