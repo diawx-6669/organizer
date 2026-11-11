@@ -796,7 +796,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.setAttribute('aria-current', 'page');
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
-    if(btn.dataset.view === 'calendar') renderCalendar();
+    if(btn.dataset.view === 'calendar'){ calAnim = 'fade'; renderCalendar(); }
     if(btn.dataset.view === 'plan'){ planEnter = true; renderPlan(); }
     if(btn.dataset.view === 'schedule') renderSchedule();
     closeMobileNav();
@@ -898,6 +898,33 @@ function renderDashboard(){
   renderWorkload();
   renderActivityHeatmap();
   renderOrbit();
+  renderTicker();
+}
+
+/* бегущая строка внизу героя: живые цифры вместо декоративного текста */
+function renderTicker(){
+  const el = document.getElementById('hero-ticker');
+  if(!el) return;
+  const hw = DATA.homework.filter(h=>!h.done).length;
+  const sm = DATA.summatives.filter(x=>!x.done).length;
+  const ev = DATA.events.filter(e => !e.date || daysUntil(e.date) >= 0).length;
+  const gl = DATA.goals.filter(g=>goalPercent(g)<100).length;
+  const streak = computeStreak();
+  const now = new Date();
+  const parts = [
+    now.toLocaleDateString('ru-RU', {weekday:'long'}),
+    now.getDate() + ' ' + MONTHS[now.getMonth()],
+    hw + ' ' + plural(hw,'задание','задания','заданий'),
+    sm + ' ' + plural(sm,'суммативка','суммативки','суммативок'),
+    ev + ' ' + plural(ev,'событие','события','событий'),
+    gl + ' ' + plural(gl,'цель','цели','целей'),
+    streak + ' ' + plural(streak,'день','дня','дней') + ' подряд'
+  ];
+  const run = parts.map(t => `<span>${escapeHtml(t)}</span><i></i>`).join('');
+  const html = `<div class="ticker-run">${run}</div>`.repeat(3);    // три копии: на широком экране без разрыва
+  if(el.dataset.sig === html) return;      // не перезапускаем бег, если ничего не изменилось
+  el.dataset.sig = html;
+  el.innerHTML = html;
 }
 
 
@@ -940,7 +967,7 @@ function renderActivityHeatmap(){
       col += `<i class="heat-cell heat-${heatLevel(n)}" title="${escapeHtml(title)}"></i>`;
       if(d === 0) monthMarks.push(date.getDate() <= 7 ? MONTHS_NOM[date.getMonth()].slice(0,3).toLowerCase() : '');
     }
-    cells += `<div class="heat-col">${col}</div>`;
+    cells += `<div class="heat-col" style="--i:${cells.split('heat-col').length - 1}">${col}</div>`;
   }
 
   const streak = computeStreak();
@@ -1013,7 +1040,7 @@ function renderWorkload(){
   const overdue = DATA.homework.filter(h => !h.done && h.due && daysUntil(h.due) < 0);
   const overdueMin = overdue.reduce((sum, h) => sum + taskMinutes(h), 0);
 
-  const bars = days.map(d=>{
+  const bars = days.map((d, di)=>{
     const height = Math.round((d.minutes / busiest) * 100);
     const weekend = [5,6].includes((d.date.getDay()+6)%7);
     const title = `${d.date.getDate()} ${MONTHS[d.date.getMonth()]}: ` +
@@ -1024,7 +1051,7 @@ function renderWorkload(){
     const inner = d.minutes > 0
       ? `<div class="wl-bar${d.sor?' has-sor':''}" style="height:${Math.max(height, 4)}%"></div>`
       : (d.sor ? '<i class="wl-dot"></i>' : '');
-    return `<div class="wl-col${weekend?' weekend':''}" title="${escapeHtml(title)}">
+    return `<div class="wl-col${weekend?' weekend':''}" style="--i:${di}" title="${escapeHtml(title)}">
       <div class="wl-bar-wrap">${inner}</div>
       <span class="wl-day">${d.date.getDate()}</span>
     </div>`;
@@ -2374,7 +2401,7 @@ function trendChartSvg(points){
   });
 
   const path = points.map((p,i)=> `${i?'L':'M'}${x(i).toFixed(1)} ${y(p.pct).toFixed(1)}`).join(' ');
-  svg += `<path d="${path}" fill="none" stroke="${c.mark}" stroke-width="2"
+  svg += `<path class="chart-line" pathLength="1" d="${path}" fill="none" stroke="${c.mark}" stroke-width="2"
     stroke-linejoin="round" stroke-linecap="round"/>`;
 
   points.forEach((p,i)=>{
@@ -2412,7 +2439,7 @@ function subjectBarsSvg(rows){
     const crit = r.grade === 2;
     svg += `<text class="chart-axis chart-rowname" x="${L-12}" y="${yTop+barH/2+4}" text-anchor="end">${escapeHtml(r.subject)}</text>`;
     svg += `<rect class="chart-track" x="${L}" y="${yTop}" width="${plotW}" height="${barH}" rx="4"/>`;
-    svg += `<rect class="chart-bar" x="${L}" y="${yTop}" width="${w.toFixed(1)}" height="${barH}" rx="4"
+    svg += `<rect class="chart-bar" style="--i:${i}" x="${L}" y="${yTop}" width="${w.toFixed(1)}" height="${barH}" rx="4"
       fill="${crit ? c.critical : c.mark}"
       data-tip="${escapeHtml(r.subject + ' · ' + r.pct + '% · оценка ' + r.grade + ' · работ: ' + r.count)}"/>`;
     svg += `<text class="chart-label" x="${W-R+8}" y="${yTop+barH/2+4}">${r.pct}% · ${r.grade}</text>`;
@@ -2707,18 +2734,41 @@ function funTest(key){
 }
 
 /* «Что посмотреть?» — случайное из того, что ещё не смотрел */
+let funRollTimer = null;
 function pickRandomFun(){
   const pool = DATA.fun.filter(i => !i.done);
   if(pool.length === 0) return;
   const pick = pool[Math.floor(Math.random() * pool.length)];
   funFilter = 'todo';
   renderFun();
+  clearTimeout(funRollTimer);
   const card = document.querySelector(`.fun-card[data-id="${pick.id}"]`);
-  if(card){
-    document.querySelectorAll('.fun-card.picked').forEach(el => el.classList.remove('picked'));
+  if(!card) return;
+  document.querySelectorAll('.fun-card.picked, .fun-card.roll').forEach(el => el.classList.remove('picked', 'roll'));
+
+  const land = ()=>{
+    document.querySelectorAll('.fun-card.roll').forEach(el => el.classList.remove('roll'));
     card.classList.add('picked');
     card.scrollIntoView({block:'center', behavior:'smooth'});
-  }
+    burstConfetti(card);
+  };
+
+  /* рулетка: подсветка бежит по карточкам, замедляется и останавливается на выбранной */
+  const cards = [...document.querySelectorAll('#list-fun .fun-card')];
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce || cards.length < 3){ land(); return; }
+  const target = cards.indexOf(card), STEPS = 14;
+  let k = 0, delay = 55;
+  const step = ()=>{
+    cards.forEach(c => c.classList.remove('roll'));
+    if(k >= STEPS){ land(); return; }
+    const idx = (((target - STEPS + k) % cards.length) + cards.length) % cards.length;
+    cards[idx].classList.add('roll');
+    k++;
+    delay *= 1.14;
+    funRollTimer = setTimeout(step, delay);
+  };
+  step();
 }
 
 function toggleFunDone(id, evt){
@@ -2986,19 +3036,33 @@ function computeStreak(){
   return streak;
 }
 
-const CONFETTI_COLORS = ['var(--gold)','var(--tab4)','var(--tab1)','var(--sage)','var(--tab7)'];
+const CONFETTI_COLORS = ['var(--gold)','var(--tab4)','var(--tab1)','var(--sage)','var(--tab7)','#ffffff'];
 function burstConfetti(el){
   if(!el || !el.getBoundingClientRect) return;
+  if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const rect = el.getBoundingClientRect();
   const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
-  for(let i=0;i<10;i++){
+
+  const ring = document.createElement('span');
+  ring.className = 'confetti-ring';
+  ring.style.left = cx+'px';
+  ring.style.top = cy+'px';
+  document.body.appendChild(ring);
+  ring.addEventListener('animationend', ()=>ring.remove());
+
+  const SHAPES = ['', ' dot', ' strip'];
+  for(let i=0;i<24;i++){
     const p = document.createElement('span');
-    p.className = 'confetti-piece';
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 46 + Math.random()*110;
+    p.className = 'confetti-piece' + SHAPES[i % SHAPES.length];
     p.style.left = cx+'px';
     p.style.top = cy+'px';
-    p.style.setProperty('--dx', (Math.random()*130-65)+'px');
-    p.style.setProperty('--dy', (Math.random()*-100-30)+'px');
-    p.style.setProperty('--rot', (Math.random()*360)+'deg');
+    p.style.setProperty('--dx', (Math.cos(angle)*dist).toFixed(0)+'px');
+    p.style.setProperty('--dy', (Math.sin(angle)*dist - 36).toFixed(0)+'px');
+    p.style.setProperty('--fall', (50 + Math.random()*90).toFixed(0)+'px');
+    p.style.setProperty('--rot', (Math.random()*720-360).toFixed(0)+'deg');
+    p.style.animationDuration = (0.9 + Math.random()*0.5).toFixed(2)+'s';
     p.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
     document.body.appendChild(p);
     p.addEventListener('animationend', ()=>p.remove());
@@ -3073,6 +3137,8 @@ function showUndo(text){
   const undoBtn = bar.querySelector('button');
   if(undoBtn) undoBtn.style.display = lastDeleted ? '' : 'none';
   bar.classList.add('open');
+  bar.style.setProperty('--undo-ms', UNDO_MS + 'ms');
+  bar.classList.remove('tick'); void bar.offsetWidth; bar.classList.add('tick');   // полоска-таймер заново
 
   clearTimeout(undoTimer);
   undoTimer = setTimeout(()=>{ lastDeleted = null; hideUndo(); }, UNDO_MS);
@@ -3223,7 +3289,29 @@ function updateSubjectsDatalist(){
   dl.innerHTML = subjectGroups().map(s=>`<option value="${escapeHtml(s)}"></option>`).join('');
 }
 
+/* Копия окна доигрывает анимацию ухода и удаляется. Само окно закрыто сразу,
+   поэтому «закрыть и тут же открыть другое» работает как раньше. */
+function fxGhostOut(el){
+  if(!el || !el.classList.contains('open')) return;
+  if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const ghost = el.cloneNode(true);
+  const src = el.querySelectorAll('input,textarea,select');
+  const dst = ghost.querySelectorAll('input,textarea,select');
+  src.forEach((n, i)=>{
+    if(!dst[i] || n.type === 'file') return;
+    if(n.type === 'checkbox' || n.type === 'radio') dst[i].checked = n.checked; else dst[i].value = n.value;
+  });
+  ghost.removeAttribute('id');
+  ghost.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+  ghost.classList.add('fx-ghost');
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.inert = true;
+  document.body.appendChild(ghost);
+  setTimeout(()=> ghost.remove(), 260);
+}
+
 function closeModal(){
+  fxGhostOut(document.getElementById('overlay'));
   document.getElementById('overlay').classList.remove('open');
   editingId = null; editingType = null;
 }
@@ -3276,7 +3364,10 @@ function renderCalendar(){
   document.getElementById('cal-month-label').textContent = MONTHS_NOM[m] + ' ' + y;
 
   const grid = document.getElementById('cal-grid');
-  grid.classList.remove('cal-fade'); void grid.offsetWidth; grid.classList.add('cal-fade');
+  /* каскад ячеек — только при входе в раздел и листании месяца,
+     а не при каждой перерисовке после клика по дню */
+  grid.classList.remove('cal-fade', 'cal-next', 'cal-prev');
+  if(calAnim){ void grid.offsetWidth; grid.classList.add('cal-' + calAnim); calAnim = ''; }
   grid.innerHTML = '';
   DOWS.forEach(d=>{
     const el = document.createElement('div');
@@ -3305,8 +3396,9 @@ function renderCalendar(){
     cells.push({dayNum, other:true, dateObj: new Date(y, m+1, dayNum)});
   }
 
-  cells.forEach(c=>{
+  cells.forEach((c, idx)=>{
     const cell = document.createElement('div');
+    cell.style.setProperty('--i', Math.floor(idx / 7) + idx % 7);
     cell.className = 'cal-cell' + (c.other? ' other':'') + (c.dateObj.toDateString()===today.toDateString() ? ' today':'');
     if(selectedDay && c.dateObj.toDateString()===selectedDay.toDateString()) cell.classList.add('selected');
     const {hw, summ, ev, plan} = dayItemsFor(c.dateObj);
@@ -3382,13 +3474,16 @@ function showDayPanel(dateObj){
   });
 }
 
+let calAnim = '';   // 'fade' | 'next' | 'prev' — как показать сетку при следующей отрисовке
 function calShift(dir){
   calDate = new Date(calDate.getFullYear(), calDate.getMonth()+dir, 1);
+  calAnim = dir > 0 ? 'next' : 'prev';
   renderCalendar();
 }
 function calGoToday(){
   calDate = new Date();
   selectedDay = new Date();
+  calAnim = 'fade';
   renderCalendar();
   showDayPanel(selectedDay);
 }
@@ -4386,21 +4481,53 @@ function openSettings(){
   box.innerHTML = `<h3>Заставка при входе</h3>
     <div class="settings-card"><label><input id="scene-enabled" type="checkbox" ${SCENE_SETTINGS.enabled?'checked':''}> Показывать заставку</label></div>
     <div class="settings-card"><label><input id="scene-loop" type="checkbox" ${SCENE_SETTINGS.loop?'checked':''}> Повторять анимацию</label><small>Если выключить — проиграется один раз за вход.</small></div>
+    <div class="settings-card"><label><input id="scene-fx" type="checkbox" ${SCENE_SETTINGS.fx!==false?'checked':''}> Живой фон: частицы, свечение, искры</label><small>Выключи, если телефон греется или сайт подтормаживает. Остальные анимации останутся.</small></div>
     <div class="field"><label>Сколько показывать: <b id="duration-value">${SCENE_SETTINGS.duration} сек.</b></label><input id="scene-duration" type="range" min="8" max="40" step="4" value="${SCENE_SETTINGS.duration}"></div>
     <div class="modal-actions"><button class="btn-secondary" onclick="closeModal()">Отмена</button><button class="btn-primary" onclick="saveSettings()">Сохранить</button></div>`;
   document.getElementById('scene-duration').addEventListener('input', e=>document.getElementById('duration-value').textContent=e.target.value+' сек.');
   document.getElementById('overlay').classList.add('open');
 }
 function saveSettings(){
-  SCENE_SETTINGS={enabled:document.getElementById('scene-enabled').checked,loop:document.getElementById('scene-loop').checked,duration:Number(document.getElementById('scene-duration').value)};
-  saveSceneSettings(); closeModal(); launchIntro(true);
+  const fxWas = SCENE_SETTINGS.fx !== false;
+  SCENE_SETTINGS={enabled:document.getElementById('scene-enabled').checked,loop:document.getElementById('scene-loop').checked,duration:Number(document.getElementById('scene-duration').value),fx:document.getElementById('scene-fx').checked};
+  saveSceneSettings(); applyFxSetting(); closeModal();
+  /* заставку переигрываем, только если меняли её, а не один лишь фон */
+  if(fxWas === SCENE_SETTINGS.fx) launchIntro(true);
 }
+function applyFxSetting(){
+  document.documentElement.dataset.fx = SCENE_SETTINGS.fx === false ? 'off' : 'on';
+}
+applyFxSetting();
+
+/* буквы названия на заставке влетают по одной */
+function splitIntroTitle(){
+  document.querySelectorAll('#intro-splash .intro-line').forEach(line=>{
+    if(line.dataset.split) return;
+    line.dataset.split = '1';
+    const host = line.querySelector('em') || line;
+    host.innerHTML = [...host.textContent].map(ch => `<span class="intro-char">${escapeHtml(ch)}</span>`).join('');
+  });
+  document.querySelectorAll('#intro-splash .intro-char').forEach((el, i) => el.style.setProperty('--i', i));
+  measureIntroTitle();
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(measureIntroTitle);
+}
+/* позиция каждой буквы в em — чтобы градиент шёл через слово без стыков */
+function measureIntroTitle(){
+  const em = document.querySelector('#intro-splash .intro-title em');
+  if(!em || !em.getClientRects().length) return;
+  const size = parseFloat(getComputedStyle(em).fontSize) || 1;
+  em.querySelectorAll('.intro-char').forEach(el => el.style.setProperty('--x', (el.offsetLeft / size).toFixed(3)));
+}
+
 function launchIntro(force=false){
   const splash=document.getElementById('intro-splash'); if(!splash) return;
   if(!force && (!SCENE_SETTINGS.enabled || sessionStorage.getItem('intro-shown'))) { splash.classList.add('done'); return; }
+  splitIntroTitle();
   splash.classList.remove('done','closing'); document.documentElement.style.setProperty('--scene-duration',SCENE_SETTINGS.duration+'s');
   splash.classList.toggle('intro-loop',SCENE_SETTINGS.loop); sessionStorage.setItem('intro-shown','1');
-  let closed=false; const closeIntro=()=>{if(closed)return;closed=true;splash.classList.add('closing');setTimeout(()=>splash.classList.add('done'),1400)};
+  let closed=false; const closeIntro=()=>{if(closed)return;closed=true;splash.classList.add('closing');setTimeout(()=>splash.classList.add('done'),1400);
+    if(typeof window.fxEnterView==='function') window.fxEnterView();   // обзор «въезжает», пока заставка тает
+  };
   const timer=setTimeout(closeIntro,SCENE_SETTINGS.duration*1000); document.getElementById('intro-skip').onclick=()=>{clearTimeout(timer);closeIntro()};
   if(SCENE_SETTINGS.loop){splash.querySelectorAll('.intro-art').forEach(el=>el.style.animationIterationCount='infinite')}
 }
@@ -4439,9 +4566,23 @@ function applyTheme(theme){
 
 function toggleTheme(){
   const next = THEME_ORDER[(THEME_ORDER.indexOf(storedTheme()) + 1) % THEME_ORDER.length];
-  localStorage.setItem(THEME_KEY, next);
-  applyTheme(next);
-  renderSummCharts();
+  const apply = ()=>{
+    localStorage.setItem(THEME_KEY, next);
+    applyTheme(next);
+    renderSummCharts();
+  };
+  const root = document.documentElement;
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* новая тема раскрывается кругом от кнопки; где так нельзя — просто переключаем */
+  if(!document.startViewTransition || reduce || resolveTheme(next) === resolveTheme(storedTheme())){ apply(); return; }
+  const btn = document.getElementById('theme-toggle');
+  const r = btn && btn.getClientRects().length ? btn.getBoundingClientRect() : null;
+  const onScreen = r && r.right > 0 && r.left < innerWidth;
+  root.style.setProperty('--vx', (onScreen ? r.left + r.width/2 : innerWidth/2) + 'px');
+  root.style.setProperty('--vy', (onScreen ? r.top + r.height/2 : innerHeight/2) + 'px');
+  root.classList.add('theme-vt');
+  const vt = document.startViewTransition(apply);
+  vt.finished.finally(()=> root.classList.remove('theme-vt'));
 }
 
 /* если выбрано «как в системе», реагируем на переключение тёмного режима в ОС */
@@ -4472,6 +4613,7 @@ function openPalette(){
   setTimeout(()=>input.focus(), 30);
 }
 function closePalette(){
+  fxGhostOut(document.getElementById('palette-overlay'));
   document.getElementById('palette-overlay').classList.remove('open');
 }
 
@@ -4892,7 +5034,7 @@ document.addEventListener('keydown', (e)=>{
     art.className = 'sect-art art-' + view;
     art.setAttribute('aria-hidden', 'true');
     art.innerHTML = `<div class="art-glow"></div><div class="art-stage">${html}</div>`;
-    head.insertBefore(art, head.querySelector(':scope > .add-btn'));
+    head.insertBefore(art, head.querySelector(':scope > .add-btn, :scope > .head-btns'));   // предмет — перед кнопками, а не после них
     head.classList.add('has-art');
   });
   const heroObj = document.querySelector('.hero-object');
@@ -4914,12 +5056,14 @@ document.addEventListener('keydown', (e)=>{
     };
     requestAnimationFrame(tick);
   }
-  const COUNT_SEL = '.stat-row .value, .plan-hero-stats b, .plan-ring-num b, .plan-next-count b';
+  const COUNT_SEL = '.stat-row .value, .plan-hero-stats b, .plan-ring-num b, .plan-next-count b, ' +
+    '.summ-stat-value, .summ-subject-pill b, .goal-pct, .forecast-pct';
 
   /* появление при прокрутке: только то, что ниже экрана, чтобы
      перерисовка после галочки не заставляла всё моргать */
   const REVEAL_SEL = '.plan-item, .plan-group-title, .plan-section h3, .plan-idea, .item-row, .goal-card, ' +
-    '.note-card, .subject-card, .stat-row, .activity-heatmap, .workload, .today-lessons, .orbit-wrap, .quick-action';
+    '.note-card, .subject-card, .activity-heatmap, .workload, .today-lessons, .orbit-wrap, .quick-action, ' +
+    '.fun-card, .chart-card, .upcoming-item, .day-panel';
   const io = (!reduce && 'IntersectionObserver' in window) ? new IntersectionObserver(entries=>{
     let n = 0;
     entries.forEach(en=>{
@@ -4928,8 +5072,15 @@ document.addEventListener('keydown', (e)=>{
       io.unobserve(el);
       el.style.setProperty('--rd', (n++ * 45) + 'ms');
       el.classList.remove('reveal-pending');
-      el.classList.add('revealed');
-      el.addEventListener('animationend', ()=> el.classList.remove('revealed'), {once:true});
+      el.classList.add('revealed', 'fx-in');      // fx-in: полосы, графики и клетки внутри дорисовываются
+      setTimeout(()=> el.classList.remove('fx-in'), 2200);
+      /* animationend всплывает и от вложенных элементов — ждём именно свой */
+      const done = ev => {
+        if(ev.target !== el) return;
+        el.removeEventListener('animationend', done);
+        el.classList.remove('revealed');
+      };
+      el.addEventListener('animationend', done);
     });
   }, {threshold: 0.08}) : null;
 
@@ -4965,7 +5116,9 @@ document.addEventListener('keydown', (e)=>{
   }
 
   /* волна от нажатия */
-  const RIPPLE_SEL = '.add-btn, .btn-primary, .urgent-go, .plan-link, .plan-done-btn, .quick-action, .plan-next, .tab-btn, .bottom-nav button, .plan-hot-row';
+  const RIPPLE_SEL = '.add-btn, .btn-primary, .urgent-go, .plan-link, .plan-done-btn, .quick-action, .plan-next, .tab-btn, ' +
+    '.bottom-nav button, .plan-hot-row, .status-chip, .subject-pill, .sched-today, .btn-secondary, .quick-task button, ' +
+    '.pomodoro-controls button, .theme-toggle, .settings-btn, .backup-btn';
   document.addEventListener('pointerdown', e=>{
     if(reduce) return;
     const btn = e.target.closest && e.target.closest(RIPPLE_SEL);
@@ -4993,9 +5146,10 @@ document.addEventListener('keydown', (e)=>{
     if(Math.abs(tx - gx) + Math.abs(ty - gy) > 0.5) requestAnimationFrame(glowLoop); else gRun = false;
   };
 
-  const SPOT_SEL = '.ledger, .plan-list, .goal-card, .quick-action, .stat-list';
-  const TILT_SEL = '.plan-hero, .plan-idea, .goal-card, .quick-action, .sect-art';
-  const MAG_SEL = '.add-btn, .plan-next, .urgent-go, .btn-primary';
+  const SPOT_SEL = '.ledger, .plan-list, .goal-card, .quick-action, .stat-row, .fun-card, .chart-card, ' +
+    '.today-lessons, .workload, .activity-heatmap, .orbit-wrap, .summ-stats, .cal-grid, .dashboard-hero';
+  const TILT_SEL = '.plan-hero, .plan-idea, .goal-card, .quick-action, .sect-art, .fun-card, .stat-row, .orbit-wrap';
+  const MAG_SEL = '.add-btn, .plan-next, .urgent-go, .btn-primary, .pomodoro-toggle, .brand .mark';
   let tiltEl = null, magEl = null, frame = 0, last = null;
 
   function resetTilt(){
@@ -5059,4 +5213,367 @@ document.addEventListener('keydown', (e)=>{
   }, {passive:true});
   document.addEventListener('pointerleave', ()=>{ glow.classList.remove('on'); resetTilt(); resetMag(); });
   window.addEventListener('blur', ()=>{ glow.classList.remove('on'); resetTilt(); resetMag(); });
+})();
+
+/* ============ СЛОЙ «ПУЛЬС» ============ */
+/* Вторая волна украшений: небо из частиц, переходы между разделами, бегунок
+   в меню, «живые» галочки и удаление, искры от нажатий, печатающаяся подсказка.
+   Как и выше — чистая косметика: без неё всё работает так же. */
+(function(){
+  const root = document.documentElement;
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const main = document.querySelector('.main');
+  const tabs = document.getElementById('tabs');
+  const fxOn = () => root.dataset.fx !== 'off';
+  const mk = (tag, cls, parent) => {
+    const el = document.createElement(tag);
+    el.className = cls;
+    el.setAttribute('aria-hidden', 'true');
+    (parent || document.body).appendChild(el);
+    return el;
+  };
+
+  /* ---------- бегунок под активной вкладкой ---------- */
+  const glider = mk('i', 'tab-glider', tabs);
+  function syncGlider(){
+    const a = tabs.querySelector('.tab-btn.active');
+    if(!a || a.hidden || !a.offsetHeight){ glider.style.opacity = '0'; return; }
+    glider.style.opacity = '1';
+    glider.style.width = a.offsetWidth + 'px';
+    glider.style.height = a.offsetHeight + 'px';
+    glider.style.transform = `translate(${a.offsetLeft}px, ${a.offsetTop}px)`;
+    glider.style.setProperty('--dotc', a.style.getPropertyValue('--dotc') || 'var(--gold)');
+  }
+  const bottomNav = document.getElementById('bottom-nav');
+  const bnGlider = bottomNav ? mk('i', 'bn-glider', bottomNav) : null;
+  function syncBnGlider(){
+    if(!bnGlider) return;
+    const a = bottomNav.querySelector('button.active');
+    if(!a || !a.offsetWidth){ bnGlider.style.opacity = '0'; return; }
+    bnGlider.style.opacity = '1';
+    bnGlider.style.width = (a.offsetWidth - 12) + 'px';
+    bnGlider.style.transform = `translateX(${a.offsetLeft + 6}px)`;
+  }
+  function syncGliders(){ syncGlider(); syncBnGlider(); }
+  syncGliders();
+  requestAnimationFrame(()=>{ syncGliders(); root.classList.add('fx-ready'); });   // после первого кадра бегунок уже скользит
+  window.addEventListener('resize', syncGliders);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(syncGliders);
+  if('MutationObserver' in window){
+    new MutationObserver(syncGliders).observe(tabs, {attributes:true, attributeFilter:['hidden','class'], subtree:true});
+    if(bottomNav) new MutationObserver(syncBnGlider).observe(bottomNav, {attributes:true, attributeFilter:['class'], subtree:true});
+  }
+
+  /* ---------- счётчики в меню подпрыгивают, когда число меняется ---------- */
+  const countWas = new Map();
+  function watchCounts(){
+    document.querySelectorAll('.tab-btn .count, .bottom-badge').forEach(el=>{
+      const now = el.textContent.trim(), was = countWas.get(el);
+      countWas.set(el, now);
+      if(was === undefined || was === now || reduce) return;
+      el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+    });
+  }
+  watchCounts();
+  if('MutationObserver' in window){
+    new MutationObserver(watchCounts).observe(tabs, {childList:true, characterData:true, subtree:true});
+    if(bottomNav) new MutationObserver(watchCounts).observe(bottomNav, {childList:true, characterData:true, subtree:true});
+  }
+
+  /* ---------- вход в раздел: каскад сверху вниз ---------- */
+  const CASCADE = '.item-row, .goal-card, .fun-card, .subject-pill, .status-chip, .stat-row, .quick-action, ' +
+    '.upcoming-item, .today-row, .summ-stat-card, .summ-subject-pill, .chart-card, .fun-source, .urgent-chip, ' +
+    '.sched-head, .sched-cell, .sched-time, .hw-filter-row, .quick-task, .cal-head, .sched-nav, .topline, ' +
+    '.dashboard-hero, .today-lessons, .workload, .orbit-wrap, .activity-heatmap, .urgent.on, .summ-stats, ' +
+    '.forecast, .subject-detail-head, .empty-note, .day-panel, .plan-hero, .plan-hot';
+  let enterTimer = 0;
+  function enterView(dir){
+    const view = document.querySelector('.view.active');
+    if(!view || reduce) return;
+    document.querySelectorAll('.view.fx-enter').forEach(v => v.classList.remove('fx-enter'));
+    view.style.setProperty('--dir', dir || 1);
+    const top = main.getBoundingClientRect().top, vh = window.innerHeight;
+    view.querySelectorAll(CASCADE).forEach(el=>{
+      const r = el.getBoundingClientRect();
+      if(!r.height || r.top > vh) return;        // то, что ниже экрана, появится при прокрутке
+      const i = Math.round((r.top - top) / 46 + r.left / 520);
+      el.style.setProperty('--i', Math.max(0, Math.min(18, i)));
+    });
+    void view.offsetWidth;
+    view.classList.add('fx-enter');
+    clearTimeout(enterTimer);
+    enterTimer = setTimeout(()=> view.classList.remove('fx-enter'), 2000);
+  }
+  window.fxEnterView = () => enterView(1);
+
+  /* ---------- цветная волна и луч при переходе ---------- */
+  const pulse = mk('i', 'route-pulse');
+  const beam = mk('i', 'route-beam');
+  const scrollBar = mk('i', 'scroll-beam');
+  function placeBars(){
+    const r = main.getBoundingClientRect();
+    [beam, scrollBar].forEach(el=>{
+      el.style.left = r.left + 'px';
+      el.style.top = r.top + 'px';
+      el.style.width = r.width + 'px';
+    });
+  }
+  placeBars();
+  window.addEventListener('resize', placeBars);
+
+  const tabBtns = [...document.querySelectorAll('.tab-btn')];
+  tabBtns.forEach((b, i) => b.style.setProperty('--ti', i));      // вкладки въезжают по очереди
+  let lastIdx = tabBtns.findIndex(b => b.classList.contains('active'));
+  tabBtns.forEach((btn, idx)=> btn.addEventListener('click', e=>{
+    const dir = idx >= lastIdx ? 1 : -1;
+    const same = idx === lastIdx;
+    lastIdx = idx;
+    main.scrollTop = 0;
+    syncGliders();
+    if(reduce) return;
+    enterView(dir);
+    if(same) return;
+    const color = btn.style.getPropertyValue('--dotc') || 'var(--gold)';
+    let x = e.clientX, y = e.clientY;
+    if(!x && !y){            // переход с клавиатуры или из нижней панели: волна идёт от самой вкладки
+      const bn = document.querySelector('.bottom-nav button.active');
+      const src = bn && bn.getClientRects().length ? bn : btn;
+      const r = src.getClientRects().length ? src.getBoundingClientRect() : null;
+      x = r && r.right > 0 ? r.left + r.width/2 : 0;
+      y = r && r.right > 0 ? r.top + r.height/2 : window.innerHeight/2;
+    }
+    [pulse, beam].forEach(el => el.style.setProperty('--c', color));
+    pulse.style.left = x + 'px';
+    pulse.style.top = y + 'px';
+    placeBars();
+    pulse.classList.remove('go'); beam.classList.remove('go');
+    void pulse.offsetWidth;
+    if(fxOn()) pulse.classList.add('go');
+    beam.classList.add('go');
+  }));
+
+  /* ---------- полоска прокрутки ---------- */
+  let scrollTick = false;
+  main.addEventListener('scroll', ()=>{
+    if(scrollTick) return;
+    scrollTick = true;
+    requestAnimationFrame(()=>{
+      scrollTick = false;
+      const max = main.scrollHeight - main.clientHeight;
+      const p = max > 40 ? main.scrollTop / max : 0;
+      scrollBar.style.transform = `scaleX(${p.toFixed(4)})`;
+      scrollBar.style.opacity = p > 0.005 ? '1' : '0';
+      root.classList.toggle('is-scrolled', main.scrollTop > 24);
+    });
+  }, {passive:true});
+
+  /* ---------- герой: слова заголовка выезжают из-под маски ---------- */
+  const h1 = document.querySelector('.hero-copy h1');
+  if(h1 && !reduce){
+    const label = h1.textContent.replace(/\s+/g, ' ').trim();
+    let wi = 0;
+    const wrapWords = node => {
+      [...node.childNodes].forEach(n=>{
+        if(n.nodeType === 3){
+          const frag = document.createDocumentFragment();
+          n.textContent.split(/(\s+)/).forEach(part=>{
+            if(!part) return;
+            if(/^\s+$/.test(part)){ frag.appendChild(document.createTextNode(' ')); return; }
+            const w = document.createElement('span');
+            w.className = 'hw';
+            w.innerHTML = `<span class="hw-in" style="--i:${wi++}">${escapeHtml(part)}</span>`;
+            frag.appendChild(w);
+          });
+          n.replaceWith(frag);
+        } else if(n.nodeType === 1 && n.tagName !== 'BR') wrapWords(n);
+      });
+    };
+    wrapWords(h1);
+    h1.setAttribute('aria-label', label);
+  }
+  const hero = document.querySelector('.dashboard-hero');
+  if(hero) hero.insertAdjacentHTML('afterbegin',
+    '<div class="hero-fx" aria-hidden="true"><i class="hero-blob b1"></i><i class="hero-blob b2"></i><i class="hero-floor"></i></div>');
+
+  /* ---------- галочка и удаление сначала отыгрывают анимацию, потом срабатывают ---------- */
+  /* Клик перехватывается, строка доигрывает ~0.3 с, после чего тот же клик
+     повторяется уже «по-настоящему». Пока строка в ожидании, новые клики по ней гасим. */
+  const waiting = new WeakSet();
+  function deferClick(el, rowCls, ms){
+    waiting.add(el);
+    const row = el.closest('.item-row, .goal-card, .fun-card');
+    if(row) row.classList.add(rowCls);
+    setTimeout(()=>{ if(el.isConnected) el.click(); }, ms);
+  }
+  document.addEventListener('click', e=>{
+    if(reduce || !e.isTrusted || !e.target.closest) return;
+    const check = e.target.closest('.item-row > .check');
+    const del = !check && e.target.closest('.item-row .icon-btn.del, .goal-card .icon-btn.del, .fun-card .fun-btn.del');
+    const el = check || del;
+    if(!el) return;
+    if(waiting.has(el)){ e.stopPropagation(); e.preventDefault(); return; }
+    if(check && check.classList.contains('done')) return;      // снять галочку — сразу
+    e.stopPropagation(); e.preventDefault();
+    if(check){ check.classList.add('done', 'fx-checking'); deferClick(check, 'fx-completing', 340); }
+    else deferClick(del, 'fx-removing', 230);
+  }, true);
+
+  /* ---------- подсказка в быстром вводе печатается сама ---------- */
+  const quick = document.getElementById('quick-task-input');
+  if(quick && !reduce){
+    const SAMPLES = ['матем параграф 12 пт !', 'физика сор 15 окт', 'англ эссе завтра', 'история конспект ср', 'химия соч 20 дек !'];
+    let si = 0, ci = 0, dir = 1;
+    const type = ()=>{
+      const idle = !quick.value && document.activeElement !== quick && quick.getClientRects().length;
+      if(!idle){ setTimeout(type, 900); return; }
+      const text = SAMPLES[si];
+      ci += dir;
+      quick.placeholder = text.slice(0, ci) + (ci < text.length || dir < 0 ? '▍' : '');
+      if(dir > 0 && ci >= text.length){ dir = -1; setTimeout(type, 1700); return; }
+      if(dir < 0 && ci <= 0){ dir = 1; si = (si + 1) % SAMPLES.length; setTimeout(type, 350); return; }
+      setTimeout(type, dir > 0 ? 62 : 24);
+    };
+    setTimeout(type, 1200);
+  }
+
+  if(reduce) return;   // дальше — только движение ради движения
+
+  /* ---------- искры от нажатия ---------- */
+  document.addEventListener('pointerdown', e=>{
+    if(!fxOn() || !e.isPrimary) return;
+    const box = mk('i', 'spark-box');
+    box.style.left = e.clientX + 'px';
+    box.style.top = e.clientY + 'px';
+    for(let i = 0; i < 7; i++){
+      const s = document.createElement('i');
+      s.style.setProperty('--a', (i * 360/7 + Math.random()*30) + 'deg');
+      s.style.setProperty('--d', (18 + Math.random()*20) + 'px');
+      box.appendChild(s);
+    }
+    setTimeout(()=> box.remove(), 600);
+  }, {passive:true});
+
+  /* ---------- небо: частицы, созвездия у курсора, падающие звёзды ---------- */
+  const sky = mk('canvas', 'fx-sky');
+  document.body.insertBefore(sky, document.body.firstChild);
+  const aur = mk('div', 'fx-aurora');
+  aur.innerHTML = '<i class="a1"></i><i class="a2"></i><i class="a3"></i>';
+  document.body.insertBefore(aur, document.body.firstChild);
+
+  const ctx = sky.getContext('2d');
+  const PAL = {
+    dark:  ['79,209,197', '201,168,242', '242,168,208', '255,255,255', '255,255,255'],
+    light: ['15,158,143', '138,95,214', '194,85,154', '47,127,214', '90,100,120']
+  };
+  const N = fine ? 78 : 34, LINK = 118;
+  let W = 0, H = 0, pts = [], mx = -9999, my = -9999, skyRaf = 0, meteor = null, nextMeteor = performance.now() + 3500;
+  function sizeSky(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    sky.width = W * dpr; sky.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function seedSky(){
+    pts = Array.from({length: N}, ()=>({
+      x: Math.random()*W, y: Math.random()*H,
+      vx: (Math.random() - .5) * .22, vy: (Math.random() - .5) * .22,
+      r: .5 + Math.random()*1.7, c: Math.floor(Math.random()*5),
+      ph: Math.random()*6.28, sp: .4 + Math.random()*1.3
+    }));
+  }
+  function drawSky(t){
+    skyRaf = 0;
+    if(document.hidden || !fxOn()){ ctx.clearRect(0, 0, W, H); return; }
+    const pal = root.getAttribute('data-theme') === 'light' ? PAL.light : PAL.dark;
+    const k = root.getAttribute('data-theme') === 'light' ? .75 : 1;
+    ctx.clearRect(0, 0, W, H);
+    for(let i = 0; i < pts.length; i++){
+      const p = pts[i];
+      const dx = p.x - mx, dy = p.y - my, d2 = dx*dx + dy*dy;
+      if(d2 < 19600 && d2 > 1){              // курсор мягко расталкивает частицы
+        const f = (1 - Math.sqrt(d2)/140) * .5;
+        p.x += dx / Math.sqrt(d2) * f; p.y += dy / Math.sqrt(d2) * f;
+      }
+      p.x += p.vx; p.y += p.vy;
+      if(p.x < -10) p.x = W + 10; else if(p.x > W + 10) p.x = -10;
+      if(p.y < -10) p.y = H + 10; else if(p.y > H + 10) p.y = -10;
+      const a = (.22 + .58 * Math.abs(Math.sin(t/1000 * p.sp + p.ph))) * k;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, 6.2832);
+      ctx.fillStyle = `rgba(${pal[p.c]},${a.toFixed(3)})`;
+      ctx.fill();
+      if(!fine) continue;
+      for(let j = i + 1; j < pts.length; j++){
+        const q = pts[j], ex = p.x - q.x, ey = p.y - q.y, e2 = ex*ex + ey*ey;
+        if(e2 > LINK*LINK) continue;
+        ctx.strokeStyle = `rgba(${pal[p.c]},${((1 - Math.sqrt(e2)/LINK) * .16 * k).toFixed(3)})`;
+        ctx.lineWidth = .6;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+      }
+      if(d2 < 32400){                         // созвездие тянется к курсору
+        ctx.strokeStyle = `rgba(${pal[p.c]},${((1 - Math.sqrt(d2)/180) * .42 * k).toFixed(3)})`;
+        ctx.lineWidth = .7;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(mx, my); ctx.stroke();
+      }
+    }
+    if(!meteor && t > nextMeteor){
+      meteor = {x: Math.random()*W*.8 + W*.1, y: -20, vx: -(4 + Math.random()*3), vy: 5 + Math.random()*3, life: 1};
+    }
+    if(meteor){
+      const m = meteor;
+      m.x += m.vx; m.y += m.vy; m.life -= .012;
+      const g = ctx.createLinearGradient(m.x, m.y, m.x - m.vx*14, m.y - m.vy*14);
+      g.addColorStop(0, `rgba(${pal[3]},${(.85 * m.life * k).toFixed(3)})`);
+      g.addColorStop(1, `rgba(${pal[0]},0)`);
+      ctx.strokeStyle = g; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.vx*14, m.y - m.vy*14); ctx.stroke();
+      if(m.life <= 0 || m.y > H + 40 || m.x < -40){ meteor = null; nextMeteor = t + 5000 + Math.random()*7000; }
+    }
+    skyRaf = requestAnimationFrame(drawSky);
+  }
+  const wakeSky = ()=>{ if(!skyRaf) skyRaf = requestAnimationFrame(drawSky); };
+  sizeSky(); seedSky(); wakeSky();
+  window.addEventListener('resize', ()=>{ sizeSky(); seedSky(); wakeSky(); });
+  document.addEventListener('visibilitychange', wakeSky);
+  if('MutationObserver' in window) new MutationObserver(wakeSky).observe(root, {attributes:true, attributeFilter:['data-fx']});
+
+  if(!fine) return;   // дальше — только для мыши
+
+  /* ---------- кольцо-спутник у курсора и параллакс героя ---------- */
+  const ring = mk('i', 'cursor-ring');
+  const HOT = 'button, a, .check, [onclick], input, select, textarea, label, .cal-cell, .sched-cell';
+  let rx = -100, ry = -100, tx = -100, ty = -100, ringRun = false;
+  const ringLoop = ()=>{
+    rx += (tx - rx) * .2; ry += (ty - ry) * .2;
+    ring.style.transform = `translate3d(${rx.toFixed(1)}px, ${ry.toFixed(1)}px, 0)`;
+    if(Math.abs(tx - rx) + Math.abs(ty - ry) > .3) requestAnimationFrame(ringLoop); else ringRun = false;
+  };
+  document.addEventListener('pointermove', e=>{
+    mx = e.clientX; my = e.clientY;
+    tx = e.clientX; ty = e.clientY;
+    ring.classList.add('on');
+    ring.classList.toggle('hot', !!(e.target.closest && e.target.closest(HOT)));
+    if(!ringRun){ ringRun = true; requestAnimationFrame(ringLoop); }
+    if(hero && hero.getClientRects().length){
+      const r = hero.getBoundingClientRect();
+      if(e.clientY > r.top - 80 && e.clientY < r.bottom + 80){
+        hero.style.setProperty('--px', ((e.clientX - r.left) / r.width - .5).toFixed(3));
+        hero.style.setProperty('--py', ((e.clientY - r.top) / r.height - .5).toFixed(3));
+      }
+    }
+  }, {passive:true});
+  document.addEventListener('pointerdown', ()=> ring.classList.add('press'), {passive:true});
+  document.addEventListener('pointerup', ()=> ring.classList.remove('press'), {passive:true});
+  document.addEventListener('pointerleave', ()=>{ ring.classList.remove('on'); mx = my = -9999; });
+  root.addEventListener('mouseleave', ()=>{ ring.classList.remove('on'); mx = my = -9999; });
+  window.addEventListener('blur', ()=>{ ring.classList.remove('on'); mx = my = -9999; });
+})();
+
+/* первый показ: если заставки нет, обзор въезжает сразу */
+(function(){
+  const splash = document.getElementById('intro-splash');
+  if((!splash || splash.classList.contains('done')) && typeof window.fxEnterView === 'function'){
+    requestAnimationFrame(()=> window.fxEnterView());
+  }
 })();
